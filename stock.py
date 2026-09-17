@@ -118,10 +118,10 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
                 print(f">>> [디버그] pykrx 호출 실패: {e}")
                 df_result[0] = None
 
-        # 스레드에서 pykrx 호출 (5초 타임아웃)
-        thread = threading.Thread(target=fetch_pykrx, daemon=True)
+        # 스레드에서 pykrx 호출 (15초 타임아웃으로 증가)
+        thread = threading.Thread(target=fetch_pykrx, daemon=False)  # 데몬 스레드 해제
         thread.start()
-        thread.join(timeout=5)
+        thread.join(timeout=15)  # 15초로 증가
 
         df = df_result[0]
 
