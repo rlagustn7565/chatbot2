@@ -177,45 +177,62 @@ def get_default_rates() -> str:
 def get_index_price(index_name: str) -> Optional[Dict[str, any]]:
     """FinanceDataReader를 사용한 지수 조회"""
     try:
-        # 지수 심볼 매핑
+        # 지수 심볼 매핑 (여러 옵션 포함)
         index_map = {
-            'KOSPI': '^KS11',
-            '코스피': '^KS11',
-            'KOSDAQ': '^KQ11',
-            '코스닥': '^KQ11',
-            'NASDAQ': '^IXIC',
-            '나스닥': '^IXIC',
-            'S&P500': '^GSPC',
-            'SP500': '^GSPC',
-            'DOW': '^DJI',
-            'DAX': '^GDAXI',
+            'KOSPI': ['KS11', '^KS11', 'KOSPI'],
+            '코스피': ['KS11', '^KS11', 'KOSPI'],
+            'KOSDAQ': ['KQ11', '^KQ11', 'KOSDAQ'],
+            '코스닥': ['KQ11', '^KQ11', 'KOSDAQ'],
+            'NASDAQ': ['^IXIC'],
+            '나스닥': ['^IXIC'],
+            'S&P500': ['^GSPC'],
+            'SP500': ['^GSPC'],
+            'DOW': ['^DJI'],
+            'DAX': ['^GDAXI'],
         }
 
         # 심볼 찾기
-        symbol = index_map.get(index_name)
-        if not symbol:
+        symbols = index_map.get(index_name)
+        if not symbols:
             print(f"⚠️ '{index_name}' 지수를 찾을 수 없습니다.")
             return None
 
         print(f"📊 {index_name} 지수 조회 중...")
-        print(f">>> [디버그] 심볼: {symbol}")
 
         # FinanceDataReader로 데이터 조회 (1년 데이터)
         today = pd.Timestamp.today()
         start_date = today - timedelta(days=365)
         print(f">>> [디버그] 조회 기간: {start_date.date()} ~ {today.date()}")
 
-        df = fdr.DataReader(symbol, start=start_date)
-        print(f">>> [디버그] 조회된 행 수: {len(df)}")
+        # 여러 심볼 시도
+        df = None
+        used_symbol = None
+        for symbol in symbols:
+            try:
+                print(f">>> [디버그] 심볼 시도: {symbol}")
+                df_temp = fdr.DataReader(symbol, start=start_date)
 
-        if df.empty:
+                if not df_temp.empty:
+                    latest_temp = df_temp.iloc[-1]
+                    if not pd.isna(latest_temp['Close']):
+                        print(f">>> [디버그] 성공! 심볼: {symbol}")
+                        df = df_temp
+                        used_symbol = symbol
+                        break
+            except Exception as e:
+                print(f">>> [디버그] {symbol} 실패")
+                continue
+
+        if df is None or df.empty:
             print(f"❌ 지수 데이터를 찾을 수 없습니다.")
             return None
 
         latest = df.iloc[-1]
-        print(f">>> [디버그] 최신 Close 값: {latest['Close']}, 타입: {type(latest['Close'])}")
         current_price = float(latest['Close'])
-        print(f">>> [디버그] 변환된 current_price: {current_price}")
+
+        if pd.isna(current_price):
+            print(f"❌ 유효한 지수 데이터가 없습니다.")
+            return None
 
         # 변화량 계산 (데이터 부족 시 0)
         change = 0
@@ -236,7 +253,7 @@ def get_index_price(index_name: str) -> Optional[Dict[str, any]]:
 
         result = {
             'name': index_name,
-            'symbol': symbol,
+            'symbol': used_symbol,
             'price': current_price,
             'change': change,
             'change_rate': round(change_rate, 2) if not pd.isna(change_rate) else 0,
