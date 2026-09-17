@@ -74,10 +74,10 @@ def analyze_stock(price_data: Dict[str, Any], news_list: List[Dict[str, str]]) -
                 traceback.print_exc()
                 error[0] = str(e)
 
-        # 스레드에서 Gemini 호출 (타임아웃: 8초)
+        # 스레드에서 Gemini 호출 (타임아웃: 20초로 증가)
         thread = threading.Thread(target=call_gemini, daemon=True)
         thread.start()
-        thread.join(timeout=8)
+        thread.join(timeout=20)  # 20초로 증가
 
         if result[0]:
             print("✅ 투심 분석 완료!\n")
