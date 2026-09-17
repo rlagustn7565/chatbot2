@@ -7,8 +7,7 @@ from pydantic import BaseModel
 # 모듈 임포트
 from dotenv import load_dotenv
 from youtube import get_youtube_summary
-from stock import get_stock_price, get_stock_news, get_index_price, get_exchange_rate, get_default_indices, get_default_rates
-from llm_helper import analyze_stock
+from stock import get_stock_price, get_index_price, get_exchange_rate, get_default_indices, get_default_rates
 from news import get_ranking_news, search_news
 import FinanceDataReader as fdr
 
@@ -174,42 +173,26 @@ async def health_check():
 # ============================================================
 
 def analyze_stock_full(stock_name: str) -> Optional[str]:
-    """주식 종목 분석"""
+    """주식 종목 분석 (5초 이내)"""
     try:
-        # 1. 주가 정보 조회
+        # 1. 주가 정보만 빠르게 조회 (3초 이내)
         price_data = get_stock_price(stock_name)
         if not price_data:
             return f"'{stock_name}' 종목을 찾을 수 없습니다."
 
-        # 2. 뉴스 정보 조회
-        news_list = get_stock_news(stock_name)
-        if not news_list:
-            return f"'{stock_name}'에 대한 뉴스를 찾을 수 없습니다."
-
-        # 3. LLM으로 투심 분석
-        analysis_result = analyze_stock(price_data, news_list)
-
-        # 4. 최종 응답 포맷
-        result = f"""📊 {stock_name} 분석결과
+        # 2. 간단한 응답 (시간 초과 방지)
+        result = f"""📊 {stock_name}
 
 💰 현재가: {price_data['price']:,.0f}원
-📈 변화: {price_data['change']:+,.0f}원 ({price_data['change_rate']:+.2f}%)
-📊 고가/저가: {price_data['high']:,.0f}원 / {price_data['low']:,.0f}원
-
-🤖 AI 분석:
-{analysis_result or '분석 데이터 부족'}
-
-📰 관련 뉴스:"""
-
-        if news_list:
-            for i, news in enumerate(news_list[:3], 1):
-                result += f"\n{i}. {news['title']}\n   🔗 {news['link']}"
+📈 변화율: {price_data['change_rate']:+.2f}%
+📊 고가: {price_data['high']:,.0f}원
+📉 저가: {price_data['low']:,.0f}원"""
 
         return result
 
     except Exception as e:
         print(f"❌ 주식 분석 오류: {e}")
-        return None
+        return "주식 정보를 조회할 수 없습니다."
 
 def analyze_index_or_exchange(utterance: str) -> Optional[str]:
     """지수/환율 조회"""
