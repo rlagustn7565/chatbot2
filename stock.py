@@ -121,6 +121,36 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
         return None
 
 
+def get_default_indices() -> str:
+    """기본 지수 조회"""
+    result_text = "📈 **주요 지수 현황**\n\n"
+
+    for idx_name in ['KOSPI', 'KOSDAQ', 'NASDAQ']:
+        try:
+            data = get_index_price(idx_name)
+            if data:
+                result_text += f"📊 {data['name']}: {data['price']:,.0f} ({data['change_rate']:+.2f}%)\n"
+        except:
+            pass
+
+    return result_text if len(result_text) > 30 else None
+
+
+def get_default_rates() -> str:
+    """기본 환율 조회"""
+    result_text = "💱 **환율 정보**\n\n"
+
+    for pair in ['USD/KRW', 'EUR/USD', 'JPY/KRW']:
+        try:
+            data = get_exchange_rate(pair)
+            if data:
+                result_text += f"💰 {data['pair']}: {data['rate']:,.2f} ({data['change_rate']:+.2f}%)\n"
+        except:
+            pass
+
+    return result_text if len(result_text) > 30 else None
+
+
 def get_index_price(index_name: str) -> Optional[Dict[str, any]]:
     """FinanceDataReader를 사용한 지수 조회"""
     try:

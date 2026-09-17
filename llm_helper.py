@@ -51,7 +51,7 @@ def analyze_stock(price_data: Dict[str, Any], news_list: List[Dict[str, str]]) -
                 print(">>> [디버그] Claude API 네트워크 요청 시작...")
                 message = client.messages.create(
                     model="claude-haiku-4-5-20251001",
-                    max_tokens=100,
+                    max_tokens=300,
                     messages=[
                         {"role": "user", "content": prompt}
                     ]

@@ -7,8 +7,9 @@ from pydantic import BaseModel
 # 모듈 임포트
 from dotenv import load_dotenv
 from youtube import get_youtube_summary
-from stock import get_stock_price, get_stock_news, get_index_price, get_exchange_rate
+from stock import get_stock_price, get_stock_news, get_index_price, get_exchange_rate, get_default_indices, get_default_rates
 from llm_helper import analyze_stock
+import FinanceDataReader as fdr
 
 # .env 파일 로드
 load_dotenv()
@@ -89,6 +90,16 @@ async def chat(request: KakaoRequest):
         if "youtube.com" in user_utterance or "youtu.be" in user_utterance:
             print("[🎥 유튜브 분석]")
             result_text = get_youtube_summary(user_utterance)
+
+        # 명령어: "지수", "지표"
+        elif any(cmd in user_utterance for cmd in ["지수", "지표"]):
+            print("[📊 지수 조회]")
+            result_text = get_default_indices()
+
+        # 명령어: "환율"
+        elif "환율" in user_utterance:
+            print("[💱 환율 조회]")
+            result_text = get_default_rates()
 
         else:
             # 종목명 추출
@@ -199,18 +210,23 @@ def analyze_index_or_exchange(utterance: str) -> Optional[str]:
         return None
 
 def extract_stock_name(utterance: str) -> Optional[str]:
-    """발화에서 종목명 추출"""
-    major_stocks = [
-        '삼성전자', 'SK하이닉스', 'LG화학', 'NAVER', 'KB금융',
-        '신한지주', '현대자동차', 'LG전자', '삼성SDI', '삼성화학',
-        'SK이노베이션', '포스코', '현대모비스', '기아', 'HMM'
-    ]
+    """StockListing으로 종목명 추출"""
+    try:
+        stock_list = fdr.StockListing('KRX')
 
-    for stock in major_stocks:
-        if stock in utterance:
-            return stock
+        # 정확한 매칭
+        exact = stock_list[stock_list['Name'] == utterance.strip()]
+        if not exact.empty:
+            return utterance.strip()
 
-    return None
+        # 부분 매칭
+        partial = stock_list[stock_list['Name'].str.contains(utterance, case=False, na=False)]
+        if not partial.empty:
+            return partial.iloc[0]['Name']
+
+        return None
+    except:
+        return None
 
 # ============================================================
 # [4] 서버 실행
