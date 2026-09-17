@@ -9,6 +9,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import FinanceDataReader as fdr
 import threading
+import yfinance as yf
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -54,7 +55,7 @@ def get_stock_code_by_name(stock_name: str) -> Optional[str]:
 
 
 def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
-    """FinanceDataReader를 사용한 실시간 주가 조회 + 52주 정보"""
+    """실시간 주가 조회 + 정확한 52주 정보 (yfinance 사용)"""
     try:
         stock_code = get_stock_code_by_name(stock_name)
         if not stock_code:
@@ -63,12 +64,8 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
 
         print(f"📊 {stock_name} 주가 정보 조회 중...")
 
-        # 52주 데이터 조회 (약 250거래일)
+        # 현재 가격: FinanceDataReader (한국 거래소, 실시간)
         today = pd.Timestamp.today()
-        start_date_52w = today - timedelta(days=365)
-        df_52w = fdr.DataReader(stock_code, start=start_date_52w)
-
-        # 최근 2일 데이터 조회
         start_date = today - timedelta(days=2)
         df = fdr.DataReader(stock_code, start=start_date)
 
@@ -79,17 +76,7 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
         # 최신 데이터
         latest = df.iloc[-1]
         current_price = float(latest['Close'])
-        high_today = float(latest['High'])
-        low_today = float(latest['Low'])
         volume = int(latest['Volume'])
-
-        # 52주 고가/저가
-        high_52w = float(df_52w['High'].max()) if not df_52w.empty else current_price
-        low_52w = float(df_52w['Low'].min()) if not df_52w.empty else current_price
-
-        # 52주 대비 현재가 변화율
-        change_from_52w_low = ((current_price - low_52w) / low_52w * 100) if low_52w > 0 else 0
-        change_from_52w_high = ((current_price - high_52w) / high_52w * 100) if high_52w > 0 else 0
 
         # 전일 데이터와 비교
         change = 0
@@ -101,6 +88,26 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
             change = current_price - prev_price
             change_rate = (change / prev_price) * 100
 
+        # 52주 데이터: yfinance (더 정확함)
+        try:
+            # KRX 종목이므로 .KS suffix 추가
+            ticker_code = f"{stock_code}.KS"
+            df_52w = yf.download(ticker_code, period="1y", progress=False)
+
+            if not df_52w.empty:
+                high_52w = float(df_52w['High'].max())
+                low_52w = float(df_52w['Low'].min())
+            else:
+                high_52w = current_price
+                low_52w = current_price
+        except:
+            print(f"   ⚠️ yfinance 조회 실패, 기본값 사용")
+            high_52w = current_price
+            low_52w = current_price
+
+        # 52주 대비 현재가 변화율
+        change_from_52w_low = ((current_price - low_52w) / low_52w * 100) if low_52w > 0 else 0
+
         result = {
             'name': stock_name,
             'code': stock_code,
@@ -108,13 +115,10 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
             'change': change,
             'change_rate': round(change_rate, 2),
             'date': str(df.index[-1].date()),
-            'high': high_today,
-            'low': low_today,
             'volume': volume,
-            'high_52w': high_52w,
-            'low_52w': low_52w,
-            'change_from_52w_low': round(change_from_52w_low, 2),
-            'change_from_52w_high': round(change_from_52w_high, 2)
+            'high_52w': round(high_52w, 0),
+            'low_52w': round(low_52w, 0),
+            'change_from_52w_low': round(change_from_52w_low, 2)
         }
 
         print(f"✅ 주가 조회 완료!")

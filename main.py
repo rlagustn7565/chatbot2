@@ -64,22 +64,27 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
 
 📈 주식 종목 분석
 - "삼성전자", "SK하이닉스", "LG화학" 등
-- 실시간 주가, 뉴스, AI 투심 분석
+  → 실시간 주가, 52주 고가/저가, 뉴스, 투자심리(긍정/부정/중립)
+
+📰 종목별 뉴스 검색
+- "삼성전자 뉴스", "SK하이닉스 뉴스"
+  → 해당 종목 관련 뉴스 + 감정 분석 (📈/📉/➡️)
+
+📊 뉴스 조회
+- "뉴스"만 입력
+  → 주요 종목 최신 뉴스 모음
+
+📈 시장 지수 조회
+- "지수", "KOSPI", "KOSDAQ", "나스닥", "S&P500"
+  → 실시간 지수 정보
+
+💱 환율 조회
+- "환율", "USD/KRW", "원달러", "EUR/USD"
+  → 실시간 환율 정보
 
 📺 유튜브 영상 요약
 - 유튜브 링크 입력
-- 자막 추출 → AI 요약
-
-📊 지수 조회
-- "코스피", "KOSDAQ", "나스닥", "S&P500"
-
-💱 환율 조회
-- "USD/KRW", "원달러", "EUR/USD"
-
-📰 뉴스 검색
-- "삼성전자 뉴스", "AI 뉴스"
-
-💡 아무 종목명이나 입력하면 분석 시작!"""
+  → 자막 추출 → AI 요약"""
 
             return SkillPayload(
                 version="2.0",
@@ -199,13 +204,8 @@ def analyze_stock_full(stock_name: str) -> Optional[str]:
         result = f"""📊 {stock_name}
 
 💰 {price_data['price']:,.0f}원 ({price_data['change_rate']:+.2f}%)
-📈 고가(일): {price_data['high']:,.0f}원 / 저가(일): {price_data['low']:,.0f}원"""
-
-        # 52주 정보 추가
-        if 'high_52w' in price_data and 'low_52w' in price_data:
-            result += f"\n📊 52주 고가: {price_data['high_52w']:,.0f}원"
-            result += f" / 저가: {price_data['low_52w']:,.0f}원"
-            result += f"\n💡 저가 대비: {price_data['change_from_52w_low']:+.1f}%"
+📈 52주 고가: {price_data['high_52w']:,.0f}원 / 저가: {price_data['low_52w']:,.0f}원
+💡 저가 대비: {price_data['change_from_52w_low']:+.1f}%"""
 
         # 즉시 투심 분석 추가
         if news_list and len(news_list) > 0:
