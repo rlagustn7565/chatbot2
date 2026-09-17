@@ -30,10 +30,20 @@ def analyze_stock(price_data: Dict[str, Any], news_list: List[Dict[str, str]]) -
             title = news.get('title', '')[:40]
             news_text += f"기사{i}: {title}\n"
 
-        prompt = f"""{stock_name}: {current_price:,.0f}원 ({change_rate:+.2f}%)
-뉴스: {news_text}
+        prompt = f"""{stock_name} 주가 분석
 
-긍정/부정/중립만 답변."""
+📊 현재가: {current_price:,.0f}원
+📈 등락률: {change_rate:+.2f}%
+
+📰 관련 뉴스:
+{news_text}
+
+다음 형식으로 상세 분석해줘:
+1. 투자심리: 긍정/부정/중립
+2. 주요 이유 (1-2줄)
+3. 추천 여부
+
+간결하되 구체적으로!"""
 
         result = [None]
         error = [None]

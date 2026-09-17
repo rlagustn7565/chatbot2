@@ -101,6 +101,26 @@ async def chat(request: KakaoRequest):
             print("[💱 환율 조회]")
             result_text = get_default_rates()
 
+        # 명령어: "뉴스"
+        elif "뉴스" in user_utterance:
+            print("[📰 뉴스 검색]")
+            # "삼성전자 뉴스" 형식 처리
+            words = user_utterance.replace("뉴스", "").strip()
+            if words:
+                stock_name = extract_stock_name(words)
+                if stock_name:
+                    news_list = get_stock_news(stock_name)
+                    if news_list:
+                        result_text = f"📰 {stock_name} 뉴스\n\n"
+                        for i, news in enumerate(news_list[:3], 1):
+                            result_text += f"{i}. {news['title']}\n🔗 {news['link']}\n\n"
+                    else:
+                        result_text = f"'{stock_name}' 관련 뉴스를 찾을 수 없습니다."
+                else:
+                    result_text = "종목을 찾을 수 없습니다. '삼성전자 뉴스' 형식으로 입력해주세요."
+            else:
+                result_text = "뉴스를 조회할 종목을 지정해주세요.\n예: '삼성전자 뉴스', 'SK하이닉스 뉴스'"
+
         else:
             # 종목명 추출
             stock_name = extract_stock_name(user_utterance)
@@ -156,13 +176,26 @@ def analyze_stock_full(stock_name: str) -> Optional[str]:
         if not news_list:
             return f"'{stock_name}'에 대한 뉴스를 찾을 수 없습니다."
 
-        # 3. LLM으로 투심 분석 (5초 내 응답)
+        # 3. LLM으로 투심 분석
         analysis_result = analyze_stock(price_data, news_list)
 
-        if analysis_result:
-            return analysis_result
-        else:
-            return "분석 중 오류가 발생했습니다."
+        # 4. 최종 응답 포맷
+        result = f"""📊 {stock_name} 분석결과
+
+💰 현재가: {price_data['price']:,.0f}원
+📈 변화: {price_data['change']:+,.0f}원 ({price_data['change_rate']:+.2f}%)
+📊 고가/저가: {price_data['high']:,.0f}원 / {price_data['low']:,.0f}원
+
+🤖 AI 분석:
+{analysis_result or '분석 데이터 부족'}
+
+📰 관련 뉴스:"""
+
+        if news_list:
+            for i, news in enumerate(news_list[:3], 1):
+                result += f"\n{i}. {news['title']}\n   🔗 {news['link']}"
+
+        return result
 
     except Exception as e:
         print(f"❌ 주식 분석 오류: {e}")

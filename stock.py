@@ -218,12 +218,12 @@ def get_index_price(index_name: str) -> Optional[Dict[str, any]]:
 
 
 def get_exchange_rate(currency_pair: str) -> Optional[Dict[str, any]]:
-    """yfinance를 사용한 환율 조회"""
+    """FinanceDataReader를 사용한 환율 조회"""
     try:
         print(f"💱 {currency_pair} 환율 조회 중...")
 
-        # yfinance로 환율 조회
-        df = yf.download(currency_pair, period="5d", progress=False)
+        # FinanceDataReader로 환율 조회
+        df = fdr.DataReader(currency_pair, '2026-09-01')
 
         if df.empty:
             print(f"❌ 환율 데이터를 찾을 수 없습니다.")
