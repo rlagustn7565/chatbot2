@@ -136,7 +136,8 @@ def analyze_stock(price_data: Dict[str, Any], news_list: List[Dict[str, str]]) -
 
         interaction = client.interactions.create(
             model="gemini-3.6-flash",
-            input=prompt
+            input=prompt,
+            timeout=15
         )
 
         analysis = interaction.output_text.strip()

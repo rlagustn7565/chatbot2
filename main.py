@@ -76,13 +76,14 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
             )
         )
 
-        # 백그라운드 작업 등록
+        # 백그라운드 작업을 스레드로 즉시 실행 (더 빠른 응답)
         if callback_url:
-            background_tasks.add_task(
-                process_analysis_background,
-                user_utterance,
-                callback_url
+            thread = threading.Thread(
+                target=process_analysis_background,
+                args=(user_utterance, callback_url),
+                daemon=True
             )
+            thread.start()
 
         return immediate_response.model_dump()
 
