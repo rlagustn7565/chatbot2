@@ -1,13 +1,15 @@
 import os
 import requests
 from typing import Dict, Any, Optional
-from fastapi import FastAPI
+from fastapi import FastAPI, BackgroundTasks
 from pydantic import BaseModel
+import asyncio
 
 # 모듈 임포트
 from dotenv import load_dotenv
 from youtube import get_youtube_summary
-from stock import get_stock_price, get_index_price, get_exchange_rate, get_default_indices, get_default_rates
+from stock import get_stock_price, get_stock_news, get_index_price, get_exchange_rate, get_default_indices, get_default_rates
+from llm_helper import analyze_stock
 from news import get_ranking_news, search_news
 import FinanceDataReader as fdr
 
@@ -15,6 +17,9 @@ import FinanceDataReader as fdr
 load_dotenv()
 
 app = FastAPI()
+
+# 비동기 작업 저장소
+async_results = {}
 
 # ============================================================
 # [1] 카카오톡 요청/응답 Pydantic 모델
@@ -41,10 +46,10 @@ class SkillPayload(BaseModel):
 # ============================================================
 
 @app.post("/api/chat")
-async def chat(request: KakaoRequest):
+async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
     """
-    카카오톡에서 사용자 발화를 받아 즉시 분석 결과를 반환합니다.
-    (콜백 구조 제거 - 동기 처리)
+    카카오톡에서 사용자 발화를 받아 빠르게 응답하고,
+    분석은 배경에서 비동기로 처리합니다. (5초 제한 해결)
     """
     try:
         user_request = request.userRequest
@@ -136,6 +141,9 @@ async def chat(request: KakaoRequest):
             if stock_name:
                 print(f"[📈 주식 분석: {stock_name}]")
                 result_text = analyze_stock_full(stock_name)
+
+                # 배경에서 상세 분석 시작 (뉴스 + Claude)
+                background_tasks.add_task(analyze_stock_async, stock_name)
             else:
                 # 지수/환율 조회
                 print("[📊 지수/환율 조회]")
@@ -173,26 +181,36 @@ async def health_check():
 # ============================================================
 
 def analyze_stock_full(stock_name: str) -> Optional[str]:
-    """주식 종목 분석 (5초 이내)"""
+    """주식 종목 - 빠른 응답 (가격만)"""
     try:
-        # 1. 주가 정보만 빠르게 조회 (3초 이내)
         price_data = get_stock_price(stock_name)
         if not price_data:
             return f"'{stock_name}' 종목을 찾을 수 없습니다."
 
-        # 2. 간단한 응답 (시간 초과 방지)
+        # 빠른 응답 (가격만)
         result = f"""📊 {stock_name}
 
-💰 현재가: {price_data['price']:,.0f}원
-📈 변화율: {price_data['change_rate']:+.2f}%
-📊 고가: {price_data['high']:,.0f}원
-📉 저가: {price_data['low']:,.0f}원"""
+💰 {price_data['price']:,.0f}원 ({price_data['change_rate']:+.2f}%)
+📊 고가: {price_data['high']:,.0f}원 / 저가: {price_data['low']:,.0f}원"""
 
         return result
 
     except Exception as e:
-        print(f"❌ 주식 분석 오류: {e}")
-        return "주식 정보를 조회할 수 없습니다."
+        print(f"❌ 주식 조회 오류: {e}")
+        return None
+
+
+async def analyze_stock_async(stock_name: str):
+    """배경에서 실행: 뉴스 + 분석"""
+    try:
+        print(f"[📊 배경 분석 시작] {stock_name}")
+        price_data = get_stock_price(stock_name)
+        news_list = get_stock_news(stock_name)
+        analysis = analyze_stock(price_data, news_list) if price_data and news_list else None
+
+        print(f"[✅ 배경 분석 완료] {stock_name}: {analysis[:50] if analysis else 'N/A'}...")
+    except Exception as e:
+        print(f"[❌ 배경 분석 오류] {stock_name}: {e}")
 
 def analyze_index_or_exchange(utterance: str) -> Optional[str]:
     """지수/환율 조회"""
