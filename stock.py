@@ -97,14 +97,18 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
             return None
 
         print(f"📊 {stock_name} 주가 정보 조회 중...")
+        print(f">>> [디버그] pykrx 호출 시작 (종목코드: {stock_code})")
 
         # 오늘 날짜 기준 최근 데이터 조회
         today = pd.Timestamp.today()
         start_date = (today - timedelta(days=10)).strftime('%Y%m%d')
         end_date = today.strftime('%Y%m%d')
+        print(f">>> [디버그] 조회 기간: {start_date} ~ {end_date}")
 
         # pykrx에서 OHLCV 데이터 조회
+        print(f">>> [디버그] krx_stock.get_market_ohlcv 호출 중...")
         df = krx_stock.get_market_ohlcv(start_date, end_date, stock_code)
+        print(f">>> [디버그] pykrx 응답 수신 완료! (행 수: {len(df)})")
 
         if df.empty:
             print(f"❌ 주가 데이터를 찾을 수 없습니다.")
@@ -309,6 +313,7 @@ def get_stock_news(stock_name: str) -> Optional[List[Dict[str, str]]]:
 
     try:
         print(f"📰 {stock_name} 관련 뉴스 검색 중...")
+        print(f">>> [디버그] Naver API 뉴스 검색 시작")
 
         url = "https://naverapihub.apigw.ntruss.com/search/v1/news"
 
@@ -324,7 +329,9 @@ def get_stock_news(stock_name: str) -> Optional[List[Dict[str, str]]]:
             'start': 1
         }
 
+        print(f">>> [디버그] requests.get 호출 중...")
         response = requests.get(url, headers=headers, params=params, timeout=10, verify=False)
+        print(f">>> [디버그] Naver API 응답 수신 (상태코드: {response.status_code})")
         response.encoding = 'utf-8'
 
         if response.status_code != 200:
