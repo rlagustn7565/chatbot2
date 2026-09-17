@@ -181,17 +181,24 @@ async def health_check():
 # ============================================================
 
 def analyze_stock_full(stock_name: str) -> Optional[str]:
-    """주식 종목 - 빠른 응답 (가격만)"""
+    """주식 종목 분석 (가격 + 뉴스 요약)"""
     try:
         price_data = get_stock_price(stock_name)
         if not price_data:
             return f"'{stock_name}' 종목을 찾을 수 없습니다."
 
-        # 빠른 응답 (가격만)
+        # 뉴스도 빠르게 조회
+        news_list = get_stock_news(stock_name)
+
+        # 기본 정보
         result = f"""📊 {stock_name}
 
 💰 {price_data['price']:,.0f}원 ({price_data['change_rate']:+.2f}%)
 📊 고가: {price_data['high']:,.0f}원 / 저가: {price_data['low']:,.0f}원"""
+
+        # 뉴스 추가
+        if news_list and len(news_list) > 0:
+            result += f"\n\n📰 최신 뉴스:\n• {news_list[0]['title']}"
 
         return result
 

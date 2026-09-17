@@ -11,3 +11,5 @@ pandas>=2.3.0
 matplotlib>=3.8.0
 newspaper3k>=0.0.10
 lxml[html-clean]>=4.9.0
+yt-dlp>=2024.1.1
+requests[socks]>=2.31.0
