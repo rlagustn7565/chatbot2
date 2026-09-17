@@ -2,16 +2,26 @@ import re
 import os
 from typing import Optional
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
+from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound, RequestBlocked
 import requests
 import urllib3
 from anthropic import Anthropic
+import time
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 os.environ['REQUESTS_CA_BUNDLE'] = ''
 os.environ['CURL_CA_BUNDLE'] = ''
 
 CLAUDE_API_KEY = os.getenv('CLAUDE_API_KEY')
+
+# 프리 프록시 리스트 (백업용)
+FREE_PROXIES = [
+    "http://45.142.212.109:8080",
+    "http://34.159.224.249:3128",
+    "http://35.239.31.112:3128",
+    "http://190.92.153.37:3128",
+    "http://35.198.154.165:3128",
+]
 
 
 def extract_video_id(url: str) -> Optional[str]:
@@ -31,60 +41,90 @@ def extract_video_id(url: str) -> Optional[str]:
 
 
 def get_youtube_transcript(url: str) -> Optional[str]:
+    video_id = extract_video_id(url)
+    if not video_id:
+        print("❌ 유효한 유튜브 URL이 아닙니다.")
+        return None
+
+    print(f"🎥 Video ID: {video_id}")
+    print("📝 자막을 가져오는 중...")
+
+    # 프록시 없이 먼저 시도
+    transcript_list = _try_fetch_transcript(video_id, proxy=None)
+    if transcript_list:
+        return _format_transcript(transcript_list, "기본")
+
+    # 프록시로 재시도
+    print("🔄 프록시를 사용하여 재시도 중...")
+    for i, proxy in enumerate(FREE_PROXIES, 1):
+        print(f"   프록시 {i}/{len(FREE_PROXIES)} 시도 중...")
+        time.sleep(1)
+
+        transcript_list = _try_fetch_transcript(video_id, proxy=proxy)
+        if transcript_list:
+            return _format_transcript(transcript_list, f"프록시 {i}")
+
+    print("❌ 모든 방법으로도 자막을 가져올 수 없습니다.")
+    return None
+
+
+def _try_fetch_transcript(video_id: str, proxy: Optional[str] = None) -> Optional[list]:
+    """프록시를 사용하여 자막 가져오기 시도"""
     try:
-        video_id = extract_video_id(url)
-        if not video_id:
-            print("❌ 유효한 유튜브 URL이 아닙니다.")
-            return None
-
-        print(f"🎥 Video ID: {video_id}")
-        print("📝 자막을 가져오는 중...")
-
+        # Session 생성
         http_client = requests.Session()
         http_client.verify = False
 
+        # 자연스러운 User-Agent
+        http_client.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        })
+
+        # 프록시 설정
+        if proxy:
+            proxies = {'http': proxy, 'https': proxy}
+            http_client.proxies.update(proxies)
+
         client = YouTubeTranscriptApi(http_client=http_client)
         transcript_list = None
-        language_used = None
 
+        # 한국어 시도
         try:
-            try:
-                transcript_list = client.fetch(video_id, languages=['ko'])
-                language_used = "한국어"
-            except NoTranscriptFound:
-                pass
+            transcript_list = client.fetch(video_id, languages=['ko'])
+            return transcript_list
+        except (NoTranscriptFound, RequestBlocked):
+            pass
 
-            if not transcript_list:
-                try:
-                    transcript_list = client.fetch(video_id, languages=['en'])
-                    language_used = "영어"
-                except NoTranscriptFound:
-                    pass
+        # 영어 시도
+        try:
+            transcript_list = client.fetch(video_id, languages=['en'])
+            return transcript_list
+        except (NoTranscriptFound, RequestBlocked):
+            pass
 
-            if not transcript_list:
-                transcript_list = client.fetch(video_id)
-                language_used = "사용 가능한 첫 번째"
-
-            if transcript_list:
-                print(f"✅ {language_used} 자막을 찾았습니다.")
-
-        except TranscriptsDisabled:
-            print("❌ 이 영상은 자막이 비활성화되어 있습니다.")
-            return None
-
-        if transcript_list:
-            transcript_text = " ".join([item.text for item in transcript_list])
-            print(f"✅ 총 {len(transcript_list)}개의 자막 항목을 추출했습니다.")
-            print(f"📊 총 {len(transcript_text)}자의 텍스트입니다.\n")
-            return transcript_text
+        # 사용 가능한 자막 (자동 생성)
+        try:
+            transcript_list = client.fetch(video_id)
+            return transcript_list
+        except (NoTranscriptFound, RequestBlocked):
+            pass
 
         return None
 
+    except TranscriptsDisabled:
+        print("   ⚠️ 이 영상은 자막이 비활성화되어 있습니다.")
+        return None
     except Exception as e:
-        print(f"❌ 자막 추출 중 오류 발생: {e}")
-        import traceback
-        traceback.print_exc()
         return None
+
+
+def _format_transcript(transcript_list: list, source: str) -> str:
+    """자막을 포맷팅"""
+    transcript_text = " ".join([item.text for item in transcript_list])
+    print(f"✅ {source}으로 자막을 찾았습니다!")
+    print(f"✅ 총 {len(transcript_list)}개의 자막 항목을 추출했습니다.")
+    print(f"📊 총 {len(transcript_text)}자의 텍스트입니다.\n")
+    return transcript_text
 
 
 def summarize_transcript(transcript_text: str, max_length: int = 500) -> Optional[str]:
