@@ -74,8 +74,26 @@ def search_news(keyword: str) -> Optional[List[Dict[str, str]]]:
                 description = html.unescape(item.get('description', ''))
                 description = description.replace('<b>', '').replace('</b>', '')[:200]
 
-                # 필터링: 제목에 종목명이 포함되고, 금융/주식 관련 키워드 있는지 확인
-                if title and link and keyword in title:
+                # 강화된 필터링
+                if not title or not link:
+                    continue
+
+                # 종목명이 정확히 포함되어야 함
+                if keyword not in title:
+                    continue
+
+                # 금융/투자 관련 키워드 필터링
+                finance_keywords = ['주가', '주식', '상승', '하락', '상승', '하락', '수익', '실적',
+                                   '주가지수', '종가', '장중', '거래량', '투자', '수익률', '수익성',
+                                   '주가지수', '증액', '감액', '매도', '매수', '배당', '신고가', '저가']
+
+                has_finance_keyword = any(keyword in (title + description).lower() for keyword in finance_keywords)
+
+                # ETF, 펀드 등 관련성 낮은 상품 제외
+                exclude_keywords = ['ETF', '펀드', '파생상품', '선물', '옵션', '스왑']
+                has_exclude = any(keyword in title for keyword in exclude_keywords)
+
+                if has_finance_keyword and not has_exclude:
                     news_list.append({
                         'title': title,
                         'link': link,

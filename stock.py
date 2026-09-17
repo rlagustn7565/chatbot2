@@ -54,7 +54,7 @@ def get_stock_code_by_name(stock_name: str) -> Optional[str]:
 
 
 def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
-    """FinanceDataReader를 사용한 실시간 주가 조회"""
+    """FinanceDataReader를 사용한 실시간 주가 조회 + 52주 정보"""
     try:
         stock_code = get_stock_code_by_name(stock_name)
         if not stock_code:
@@ -62,27 +62,34 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
             return None
 
         print(f"📊 {stock_name} 주가 정보 조회 중...")
-        print(f">>> [디버그] FinanceDataReader 호출 시작 (종목코드: {stock_code})")
 
-        # FinanceDataReader로 최근 2일 데이터 조회
+        # 52주 데이터 조회 (약 250거래일)
         today = pd.Timestamp.today()
+        start_date_52w = today - timedelta(days=365)
+        df_52w = fdr.DataReader(stock_code, start=start_date_52w)
+
+        # 최근 2일 데이터 조회
         start_date = today - timedelta(days=2)
-
-        print(f">>> [디버그] fdr.DataReader 호출 중...")
         df = fdr.DataReader(stock_code, start=start_date)
-
-        print(f">>> [디버그] 응답 수신 완료! (행 수: {len(df)})")
 
         if df.empty:
             print(f"❌ 주가 데이터를 찾을 수 없습니다.")
             return None
 
-        # 최신 데이터 (마지막 행)
+        # 최신 데이터
         latest = df.iloc[-1]
         current_price = float(latest['Close'])
-        high = float(latest['High'])
-        low = float(latest['Low'])
+        high_today = float(latest['High'])
+        low_today = float(latest['Low'])
         volume = int(latest['Volume'])
+
+        # 52주 고가/저가
+        high_52w = float(df_52w['High'].max()) if not df_52w.empty else current_price
+        low_52w = float(df_52w['Low'].min()) if not df_52w.empty else current_price
+
+        # 52주 대비 현재가 변화율
+        change_from_52w_low = ((current_price - low_52w) / low_52w * 100) if low_52w > 0 else 0
+        change_from_52w_high = ((current_price - high_52w) / high_52w * 100) if high_52w > 0 else 0
 
         # 전일 데이터와 비교
         change = 0
@@ -101,16 +108,18 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
             'change': change,
             'change_rate': round(change_rate, 2),
             'date': str(df.index[-1].date()),
-            'high': high,
-            'low': low,
-            'volume': volume
+            'high': high_today,
+            'low': low_today,
+            'volume': volume,
+            'high_52w': high_52w,
+            'low_52w': low_52w,
+            'change_from_52w_low': round(change_from_52w_low, 2),
+            'change_from_52w_high': round(change_from_52w_high, 2)
         }
 
-        print(f"✅ 주가 조회 완료! (실시간 데이터)")
-        print(f"   현재가: {result['price']:,.0f}원")
-        print(f"   변화액: {result['change']:+,.0f}원")
-        print(f"   등락률: {result['change_rate']:+.2f}%")
-        print(f"   고가: {result['high']:,.0f}원 | 저가: {result['low']:,.0f}원")
+        print(f"✅ 주가 조회 완료!")
+        print(f"   현재가: {result['price']:,.0f}원 ({result['change_rate']:+.2f}%)")
+        print(f"   52주 고가: {result['high_52w']:,.0f}원 / 저가: {result['low_52w']:,.0f}원")
 
         return result
 
@@ -176,8 +185,10 @@ def get_index_price(index_name: str) -> Optional[Dict[str, any]]:
 
         print(f"📊 {index_name} 지수 조회 중...")
 
-        # FinanceDataReader로 데이터 조회
-        df = fdr.DataReader(symbol, '2026-09-01')
+        # FinanceDataReader로 데이터 조회 (더 넓은 기간)
+        today = pd.Timestamp.today()
+        start_date = today - timedelta(days=30)
+        df = fdr.DataReader(symbol, start=start_date)
 
         if df.empty:
             print(f"❌ 지수 데이터를 찾을 수 없습니다.")
@@ -186,41 +197,56 @@ def get_index_price(index_name: str) -> Optional[Dict[str, any]]:
         latest = df.iloc[-1]
         current_price = float(latest['Close'])
 
-        # 변화량 계산 (데이터 부족 시 0)
-        change = 0
-        change_rate = 0
+        # nan 값 체크
+        if pd.isna(current_price):
+            print(f"❌ 지수 데이터가 유효하지 않습니다.")
+            return None
+
+        # 변화량 계산
+        change = 0.0
+        change_rate = 0.0
 
         if len(df) > 1:
             try:
                 prev = df.iloc[-2]
                 prev_price = float(prev['Close'])
-                change = current_price - prev_price
-                change_rate = (change / prev_price) * 100
 
-                if pd.isna(change_rate):
-                    change_rate = 0
+                # nan 값 체크
+                if pd.isna(prev_price) or prev_price == 0:
+                    change = 0.0
+                    change_rate = 0.0
+                else:
+                    change = float(current_price - prev_price)
+                    change_rate = float((change / prev_price) * 100)
+
+                    # nan 재확인
+                    if pd.isna(change) or pd.isna(change_rate):
+                        change = 0.0
+                        change_rate = 0.0
             except:
-                change = 0
-                change_rate = 0
+                change = 0.0
+                change_rate = 0.0
 
         result = {
             'name': index_name,
             'symbol': symbol,
-            'price': current_price,
-            'change': change,
-            'change_rate': round(change_rate, 2) if not pd.isna(change_rate) else 0,
+            'price': round(current_price, 2),
+            'change': round(change, 2),
+            'change_rate': round(change_rate, 2),
             'date': str(df.index[-1].date())
         }
 
         print(f"✅ 지수 조회 완료!")
-        print(f"   현재값: {result['price']:,.0f}")
-        print(f"   변화: {result['change']:+,.0f}")
+        print(f"   현재값: {result['price']:,.2f}")
+        print(f"   변화: {result['change']:+,.2f}")
         print(f"   변화율: {result['change_rate']:+.2f}%")
 
         return result
 
     except Exception as e:
         print(f"❌ 지수 조회 중 오류: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 
