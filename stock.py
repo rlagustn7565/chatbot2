@@ -5,7 +5,6 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 import urllib3
 import html
-from pykrx import stock as krx_stock
 import pandas as pd
 from datetime import datetime, timedelta
 import FinanceDataReader as fdr
@@ -74,82 +73,23 @@ def get_stock_code_by_name(stock_name: str) -> Optional[str]:
 
 
 def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
-    """
-    종목명을 입력받아 현재가와 등락률을 반환 (pykrx 사용)
-
-    Args:
-        stock_name: 종목명 (예: "삼성전자", "SK하이닉스")
-
-    Returns:
-        Dict: {
-            "name": "종목명",
-            "code": "종목코드",
-            "price": 현재가,
-            "change": 전일 대비 변화액,
-            "change_rate": 등락률 (%)
-        }
-        또는 None (오류 시)
-    """
+    """FinanceDataReader를 사용한 실시간 주가 조회"""
     try:
-        # 종목코드 조회
         stock_code = get_stock_code_by_name(stock_name)
         if not stock_code:
             print(f"❌ '{stock_name}'을 찾을 수 없습니다.")
             return None
 
         print(f"📊 {stock_name} 주가 정보 조회 중...")
-        print(f">>> [디버그] pykrx 호출 시작 (종목코드: {stock_code})")
+        print(f">>> [디버그] FinanceDataReader 호출 시작 (종목코드: {stock_code})")
 
-        # 오늘 날짜 기준 최근 2일 데이터만 조회 (속도 개선)
+        # FinanceDataReader로 최근 2일 데이터 조회
         today = pd.Timestamp.today()
-        start_date = (today - timedelta(days=2)).strftime('%Y%m%d')
-        end_date = today.strftime('%Y%m%d')
-        print(f">>> [디버그] 조회 기간: {start_date} ~ {end_date} (2일만)")
+        start_date = today - timedelta(days=2)
 
-        # pykrx에서 OHLCV 데이터 조회 (타임아웃 추가)
-        df_result = [None]
-
-        def fetch_pykrx():
-            try:
-                print(f">>> [디버그] krx_stock.get_market_ohlcv 호출 중...")
-                df_result[0] = krx_stock.get_market_ohlcv(start_date, end_date, stock_code)
-                print(f">>> [디버그] pykrx 응답 수신 완료! (행 수: {len(df_result[0])})")
-            except Exception as e:
-                print(f">>> [디버그] pykrx 호출 실패: {e}")
-                df_result[0] = None
-
-        # 스레드에서 pykrx 호출 (15초 타임아웃으로 증가)
-        thread = threading.Thread(target=fetch_pykrx, daemon=False)  # 데몬 스레드 해제
-        thread.start()
-        thread.join(timeout=15)  # 15초로 증가
-
-        df = df_result[0]
-
-        # 타임아웃 또는 오류 시 모의 데이터 반환
-        if df is None or df.empty:
-            print(f"⚠️ pykrx 데이터 조회 실패, 모의 데이터 사용")
-            # 모의 주가 데이터
-            mock_price = 80000 if stock_name == '삼성전자' else 254000 if stock_name == 'SK하이닉스' else 50000
-            mock_change = 1600 if stock_name == '삼성전자' else 500 if stock_name == 'SK하이닉스' else 0
-
-            result = {
-                'name': stock_name,
-                'code': stock_code,
-                'price': mock_price,
-                'change': mock_change,
-                'change_rate': round((mock_change / (mock_price - mock_change)) * 100, 2) if mock_price != mock_change else 0,
-                'date': end_date,
-                'high': mock_price * 1.02,
-                'low': mock_price * 0.98,
-                'volume': 10000000
-            }
-
-            print(f"✅ 주가 조회 완료! (모의 데이터)")
-            print(f"   현재가: {result['price']:,.0f}원")
-            print(f"   변화액: {result['change']:+,.0f}원")
-            print(f"   등락률: {result['change_rate']:+.2f}%")
-
-            return result
+        print(f">>> [디버그] fdr.DataReader 호출 중...")
+        df = fdr.DataReader(stock_code, start=start_date)
+        print(f">>> [디버그] 응답 수신 완료! (행 수: {len(df)})")
 
         if df.empty:
             print(f"❌ 주가 데이터를 찾을 수 없습니다.")
@@ -157,7 +97,10 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
 
         # 최신 데이터 (마지막 행)
         latest = df.iloc[-1]
-        current_price = float(latest['종가'])
+        current_price = float(latest['Close'])
+        high = float(latest['High'])
+        low = float(latest['Low'])
+        volume = int(latest['Volume'])
 
         # 전일 데이터와 비교
         change = 0
@@ -165,7 +108,7 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
 
         if len(df) > 1:
             prev = df.iloc[-2]
-            prev_price = float(prev['종가'])
+            prev_price = float(prev['Close'])
             change = current_price - prev_price
             change_rate = (change / prev_price) * 100
 
@@ -176,12 +119,12 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
             'change': change,
             'change_rate': round(change_rate, 2),
             'date': str(df.index[-1].date()),
-            'high': float(latest['고가']),
-            'low': float(latest['저가']),
-            'volume': int(latest['거래량'])
+            'high': high,
+            'low': low,
+            'volume': volume
         }
 
-        print(f"✅ 주가 조회 완료!")
+        print(f"✅ 주가 조회 완료! (실시간 데이터)")
         print(f"   현재가: {result['price']:,.0f}원")
         print(f"   변화액: {result['change']:+,.0f}원")
         print(f"   등락률: {result['change_rate']:+.2f}%")
