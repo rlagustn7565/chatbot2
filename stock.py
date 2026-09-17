@@ -21,54 +21,35 @@ NAVER_CLIENT_SECRET = os.getenv('NAVER_CLIENT_SECRET')
 
 
 def get_stock_code_by_name(stock_name: str) -> Optional[str]:
-    """
-    종목명으로 종목코드 조회
-
-    Args:
-        stock_name: 종목명 (예: "삼성전자", "SK하이닉스")
-
-    Returns:
-        종목코드 (예: "005930") 또는 None
-    """
+    """StockListing을 사용한 동적 종목명→종목코드 변환"""
     try:
         print(f"🔍 '{stock_name}' 종목코드 검색 중...")
 
-        # 주요 종목 매핑
-        stock_map = {
-            '삼성전자': '005930',
-            'SK하이닉스': '000660',
-            'LG화학': '051910',
-            'NAVER': '035420',
-            'KB금융': '105560',
-            '신한지주': '055550',
-            '현대자동차': '005380',
-            'LG전자': '066570',
-            '삼성SDI': '006400',
-            '삼성화학': '000810',
-            'SK이노베이션': '096770',
-            '포스코': '005490',
-            '현대모비스': '012330',
-            '기아': '000270',
-            'HMM': '011200',
-        }
+        # StockListing으로 KRX 모든 종목 조회
+        stock_list = fdr.StockListing('KRX')
 
         # 정확한 매칭
-        if stock_name in stock_map:
-            code = stock_map[stock_name]
+        exact = stock_list[stock_list['Name'] == stock_name]
+        if not exact.empty:
+            code = exact.iloc[0]['Code']
             print(f"✅ 종목코드 찾음: {stock_name} ({code})")
             return code
 
-        # 부분 매칭
-        for name, code in stock_map.items():
-            if stock_name in name or name in stock_name:
-                print(f"✅ 종목코드 찾음: {name} ({code})")
-                return code
+        # 부분 매칭 (대소문자 무시)
+        partial = stock_list[stock_list['Name'].str.contains(stock_name, case=False, na=False)]
+        if not partial.empty:
+            code = partial.iloc[0]['Code']
+            name = partial.iloc[0]['Name']
+            print(f"✅ 종목코드 찾음: {name} ({code})")
+            return code
 
-        print(f"⚠️ '{stock_name}'을 찾을 수 없습니다.")
+        print(f"❌ '{stock_name}'을 찾을 수 없습니다.")
         return None
 
     except Exception as e:
-        print(f"⚠️ 종목코드 검색 중 오류: {e}")
+        print(f"❌ 종목코드 검색 중 오류: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 

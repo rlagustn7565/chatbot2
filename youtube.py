@@ -112,7 +112,7 @@ def summarize_transcript(transcript_text: str, max_length: int = 500) -> Optiona
 요약:"""
 
         message = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-opus-5",
             max_tokens=500,
             messages=[
                 {"role": "user", "content": prompt}
