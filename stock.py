@@ -7,7 +7,7 @@ import urllib3
 import html
 import pandas as pd
 from datetime import datetime, timedelta
-import FinanceDataReader as fdr
+import yfinance as yf
 import threading
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -73,7 +73,7 @@ def get_stock_code_by_name(stock_name: str) -> Optional[str]:
 
 
 def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
-    """FinanceDataReader를 사용한 실시간 주가 조회"""
+    """yfinance를 사용한 실시간 주가 조회"""
     try:
         stock_code = get_stock_code_by_name(stock_name)
         if not stock_code:
@@ -81,14 +81,12 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
             return None
 
         print(f"📊 {stock_name} 주가 정보 조회 중...")
-        print(f">>> [디버그] FinanceDataReader 호출 시작 (종목코드: {stock_code})")
+        print(f">>> [디버그] yfinance 호출 시작 (종목코드: {stock_code}.KS)")
 
-        # FinanceDataReader로 최근 2일 데이터 조회
-        today = pd.Timestamp.today()
-        start_date = today - timedelta(days=2)
+        # yfinance로 최근 2일 데이터 조회
+        ticker = f"{stock_code}.KS"  # 코스피 종목은 .KS 추가
+        df = yf.download(ticker, period="5d", progress=False)
 
-        print(f">>> [디버그] fdr.DataReader 호출 중...")
-        df = fdr.DataReader(stock_code, start=start_date)
         print(f">>> [디버그] 응답 수신 완료! (행 수: {len(df)})")
 
         if df.empty:
@@ -140,22 +138,7 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
 
 
 def get_index_price(index_name: str) -> Optional[Dict[str, any]]:
-    """
-    지수명을 입력받아 현재가와 변화율을 반환 (finance-datareader 사용)
-
-    Args:
-        index_name: 지수명 (예: "KOSPI", "NASDAQ", "S&P500")
-
-    Returns:
-        Dict: {
-            "name": "지수명",
-            "symbol": "기호",
-            "price": 현재값,
-            "change": 변화액,
-            "change_rate": 변화율 (%)
-        }
-        또는 None (오류 시)
-    """
+    """yfinance를 사용한 지수 조회"""
     try:
         # 지수 심볼 매핑
         index_map = {
@@ -179,8 +162,8 @@ def get_index_price(index_name: str) -> Optional[Dict[str, any]]:
 
         print(f"📊 {index_name} 지수 조회 중...")
 
-        # finance-datareader로 데이터 조회
-        df = fdr.DataReader(symbol, '2026-09-01')
+        # yfinance로 데이터 조회
+        df = yf.download(symbol, period="5d", progress=False)
 
         if df.empty:
             print(f"❌ 지수 데이터를 찾을 수 없습니다.")
@@ -221,26 +204,12 @@ def get_index_price(index_name: str) -> Optional[Dict[str, any]]:
 
 
 def get_exchange_rate(currency_pair: str) -> Optional[Dict[str, any]]:
-    """
-    환율을 조회 (finance-datareader 사용)
-
-    Args:
-        currency_pair: 환율 쌍 (예: "USD/KRW", "EUR/USD", "JPY/KRW")
-
-    Returns:
-        Dict: {
-            "pair": "USD/KRW",
-            "rate": 1379.36,
-            "change": 변화액,
-            "change_rate": 변화율 (%)
-        }
-        또는 None (오류 시)
-    """
+    """yfinance를 사용한 환율 조회"""
     try:
         print(f"💱 {currency_pair} 환율 조회 중...")
 
-        # finance-datareader로 환율 조회
-        df = fdr.DataReader(currency_pair, '2026-09-01')
+        # yfinance로 환율 조회
+        df = yf.download(currency_pair, period="5d", progress=False)
 
         if df.empty:
             print(f"❌ 환율 데이터를 찾을 수 없습니다.")
