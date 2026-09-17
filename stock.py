@@ -9,7 +9,6 @@ import pandas as pd
 from datetime import datetime, timedelta
 import FinanceDataReader as fdr
 import threading
-import yfinance as yf
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -88,20 +87,15 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
             change = current_price - prev_price
             change_rate = (change / prev_price) * 100
 
-        # 52주 데이터: yfinance (더 정확함)
-        try:
-            # KRX 종목이므로 .KS suffix 추가
-            ticker_code = f"{stock_code}.KS"
-            df_52w = yf.download(ticker_code, period="1y", progress=False)
+        # 52주 고가/저가 계산
+        high_52w = float(df_52w['High'].max())
+        low_52w = float(df_52w['Low'].min())
 
-            if not df_52w.empty:
-                high_52w = float(df_52w['High'].max())
-                low_52w = float(df_52w['Low'].min())
-            else:
-                high_52w = current_price
-                low_52w = current_price
-        except:
-            print(f"   ⚠️ yfinance 조회 실패, 기본값 사용")
+        print(f">>> [디버그] High.max() = {high_52w}, Low.min() = {low_52w}")
+
+        # nan 값 체크
+        if pd.isna(high_52w) or pd.isna(low_52w):
+            print(f"   ⚠️ nan 값 감지, 현재가 사용")
             high_52w = current_price
             low_52w = current_price
 
@@ -137,16 +131,24 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
 def get_default_indices() -> str:
     """기본 지수 조회"""
     result_text = "📈 **주요 지수 현황**\n\n"
+    count = 0
 
     for idx_name in ['KOSPI', 'KOSDAQ', 'NASDAQ']:
         try:
+            print(f">>> [디버그] {idx_name} 조회 시작")
             data = get_index_price(idx_name)
-            if data:
-                result_text += f"📊 {data['name']}: {data['price']:,.0f} ({data['change_rate']:+.2f}%)\n"
-        except:
+            if data and data.get('price'):
+                result_text += f"📊 {data['name']}: {data['price']:,.2f} ({data['change_rate']:+.2f}%)\n"
+                count += 1
+                print(f">>> [디버그] {idx_name} 추가 완료")
+            else:
+                print(f">>> [디버그] {idx_name} 데이터 없음")
+        except Exception as e:
+            print(f">>> [디버그] {idx_name} 오류: {e}")
             pass
 
-    return result_text if len(result_text) > 30 else None
+    print(f">>> [디버그] 총 {count}개 지수 조회됨")
+    return result_text if count > 0 else None
 
 
 def get_default_rates() -> str:
