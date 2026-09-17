@@ -114,47 +114,61 @@ async def health_check():
 def process_analysis_background(utterance: str, callback_url: str):
     """
     백그라운드에서 실행되는 분석 함수
-
-    발화를 분석하여:
-    1. 유튜브 링크 → 자막 추출 + 요약
-    2. 종목명 → 주가 분석 + LLM 투심 분석
-    3. 지수/환율 → 지수/환율 정보 조회
     """
     try:
         print(f"\n[🔄 백그라운드 분석 시작] {utterance}")
+        print(f">>> [디버그] 백그라운드 함수 진입: {utterance}")
 
         result_text = None
 
-        # ========== 분기 1: 유튜브 링크 감지 ==========
-        if "youtube.com" in utterance or "youtu.be" in utterance:
-            print("[🎥 유튜브 분석 시작]")
-            result_text = analyze_youtube(utterance)
+        try:
+            # ========== 분기 1: 유튜브 링크 감지 ==========
+            if "youtube.com" in utterance or "youtu.be" in utterance:
+                print("[🎥 유튜브 분석 시작]")
+                print(">>> [디버그] 유튜브 분석 호출")
+                result_text = analyze_youtube(utterance)
+                print(f">>> [디버그] 유튜브 분석 완료: {len(result_text or '')}자")
 
-        # ========== 분기 2: 주식 종목 분석 ==========
-        else:
-            # 종목명 추출 (간단한 휴리스틱)
-            stock_name = extract_stock_name(utterance)
-            if stock_name:
-                print(f"[📈 주식 분석 시작: {stock_name}]")
-                result_text = analyze_stock_full(stock_name)
-
-            # ========== 분기 3: 지수/환율 분석 ==========
+            # ========== 분기 2: 주식 종목 분석 ==========
             else:
-                print("[📊 지수/환율 조회 시도]")
-                result_text = analyze_index_or_exchange(utterance)
+                stock_name = extract_stock_name(utterance)
+                if stock_name:
+                    print(f"[📈 주식 분석 시작: {stock_name}]")
+                    print(f">>> [디버그] 주식 분석 호출: {stock_name}")
+                    result_text = analyze_stock_full(stock_name)
+                    print(f">>> [디버그] 주식 분석 완료: {len(result_text or '')}자")
+
+                # ========== 분기 3: 지수/환율 분석 ==========
+                else:
+                    print("[📊 지수/환율 조회 시도]")
+                    print(">>> [디버그] 지수/환율 조회 호출")
+                    result_text = analyze_index_or_exchange(utterance)
+                    print(f">>> [디버그] 지수/환율 조회 완료: {len(result_text or '')}자")
+
+        except Exception as analysis_error:
+            print(f">>> [디버그] 분석 중 예외: {type(analysis_error).__name__}: {analysis_error}")
+            import traceback
+            traceback.print_exc()
+            raise analysis_error
 
         # 결과가 없으면 안내 메시지
         if not result_text:
+            print(">>> [디버그] 분석 결과가 None, 안내 메시지 사용")
             result_text = "죄송합니다. 요청하신 내용을 분석할 수 없습니다.\n\n다음과 같이 요청해 보세요:\n• 유튜브 링크 (예: https://youtube.com/watch?v=...)\n• 종목명 (예: 삼성전자, SK하이닉스)\n• 지수/환율 (예: KOSPI, USD/KRW)"
 
+        print(f">>> [디버그] 콜백 전송 준비: {len(result_text)}자")
         # 콜백 URL로 결과 전송
         send_callback_result(callback_url, result_text)
+        print(">>> [디버그] 콜백 전송 완료")
 
     except Exception as e:
-        print(f"❌ 백그라운드 분석 중 오류: {e}")
+        print(f"\n>>> [치명적 오류] 백그라운드 작업 실패: {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
-        send_callback_result(callback_url, f"분석 중 오류가 발생했습니다.\n\n오류: {str(e)}")
+        try:
+            send_callback_result(callback_url, f"분석 중 오류가 발생했습니다.\n\n오류: {str(e)}")
+        except Exception as callback_error:
+            print(f">>> [치명적 오류] 콜백 전송도 실패: {callback_error}")
 
 
 def analyze_youtube(utterance: str) -> Optional[str]:

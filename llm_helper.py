@@ -52,15 +52,26 @@ def analyze_stock(price_data: Dict[str, Any], news_list: List[Dict[str, str]]) -
             try:
                 if not GEMINI_API_KEY:
                     error[0] = "API 키 없음"
+                    print(">>> [디버그] API 키가 없습니다!")
                     return
 
+                print(">>> [디버그] Gemini 클라이언트 생성 시작...")
                 client = genai.Client(api_key=GEMINI_API_KEY)
+                print(">>> [디버그] Gemini 클라이언트 생성 완료")
+
+                print(">>> [디버그] Gemini API 네트워크 요청 시작...")
                 interaction = client.interactions.create(
                     model="gemini-3.6-flash",
                     input=prompt
                 )
+                print(">>> [디버그] Gemini API 응답 수신 완료!")
+
                 result[0] = interaction.output_text.strip()[:400]
+                print(f">>> [디버그] 응답 처리 완료 (길이: {len(result[0])}자)")
             except Exception as e:
+                print(f">>> [디버그] call_gemini 예외 발생: {type(e).__name__}: {e}")
+                import traceback
+                traceback.print_exc()
                 error[0] = str(e)
 
         # 스레드에서 Gemini 호출 (타임아웃: 8초)
