@@ -191,8 +191,10 @@ def get_index_price(index_name: str) -> Optional[Dict[str, any]]:
 
         print(f"📊 {index_name} 지수 조회 중...")
 
-        # FinanceDataReader로 데이터 조회 (기존 방식 복구)
-        df = fdr.DataReader(symbol, '2026-09-01')
+        # FinanceDataReader로 데이터 조회 (1년 데이터)
+        today = pd.Timestamp.today()
+        start_date = today - timedelta(days=365)
+        df = fdr.DataReader(symbol, start=start_date)
 
         if df.empty:
             print(f"❌ 지수 데이터를 찾을 수 없습니다.")
