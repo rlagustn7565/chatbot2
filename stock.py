@@ -72,6 +72,10 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
             print(f"❌ 주가 데이터를 찾을 수 없습니다.")
             return None
 
+        # 52주 데이터 조회 (1년)
+        start_date_52w = today - timedelta(days=365)
+        df_52w = fdr.DataReader(stock_code, start=start_date_52w)
+
         # 최신 데이터
         latest = df.iloc[-1]
         current_price = float(latest['Close'])
@@ -88,8 +92,12 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
             change_rate = (change / prev_price) * 100
 
         # 52주 고가/저가 계산
-        high_52w = float(df_52w['High'].max())
-        low_52w = float(df_52w['Low'].min())
+        if not df_52w.empty:
+            high_52w = float(df_52w['High'].max())
+            low_52w = float(df_52w['Low'].min())
+        else:
+            high_52w = current_price
+            low_52w = current_price
 
         print(f">>> [디버그] High.max() = {high_52w}, Low.min() = {low_52w}")
 
@@ -190,18 +198,24 @@ def get_index_price(index_name: str) -> Optional[Dict[str, any]]:
             return None
 
         print(f"📊 {index_name} 지수 조회 중...")
+        print(f">>> [디버그] 심볼: {symbol}")
 
         # FinanceDataReader로 데이터 조회 (1년 데이터)
         today = pd.Timestamp.today()
         start_date = today - timedelta(days=365)
+        print(f">>> [디버그] 조회 기간: {start_date.date()} ~ {today.date()}")
+
         df = fdr.DataReader(symbol, start=start_date)
+        print(f">>> [디버그] 조회된 행 수: {len(df)}")
 
         if df.empty:
             print(f"❌ 지수 데이터를 찾을 수 없습니다.")
             return None
 
         latest = df.iloc[-1]
+        print(f">>> [디버그] 최신 Close 값: {latest['Close']}, 타입: {type(latest['Close'])}")
         current_price = float(latest['Close'])
+        print(f">>> [디버그] 변환된 current_price: {current_price}")
 
         # 변화량 계산 (데이터 부족 시 0)
         change = 0
