@@ -1,21 +1,18 @@
 import os
 from typing import Dict, List, Optional, Any
 from dotenv import load_dotenv
-from google import genai
+from anthropic import Anthropic
 import threading
-import time
 
 # .env 파일 로드
 load_dotenv()
 
-# Gemini API 설정
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+# Claude API 설정
+CLAUDE_API_KEY = os.getenv('CLAUDE_API_KEY')
 
 
 def analyze_stock(price_data: Dict[str, Any], news_list: List[Dict[str, str]]) -> Optional[str]:
-    """
-    주식 분석 (Gemini 또는 폴백)
-    """
+    """Claude API를 사용한 주식 분석"""
     if not price_data or not news_list:
         print("⚠️ 데이터가 부족합니다.")
         return None
@@ -25,7 +22,7 @@ def analyze_stock(price_data: Dict[str, Any], news_list: List[Dict[str, str]]) -
     change_rate = price_data.get('change_rate', 0)
 
     try:
-        print("🤖 Gemini AI로 투심 분석 중...")
+        print("🤖 Claude AI로 투심 분석 중...")
 
         # 뉴스 텍스트 준비
         news_text = ""
@@ -41,49 +38,50 @@ def analyze_stock(price_data: Dict[str, Any], news_list: List[Dict[str, str]]) -
         result = [None]
         error = [None]
 
-        def call_gemini():
+        def call_claude():
             try:
-                if not GEMINI_API_KEY:
+                print(">>> [디버그] Claude 클라이언트 생성 중...")
+                if not CLAUDE_API_KEY:
                     error[0] = "API 키 없음"
-                    print(">>> [디버그] API 키가 없습니다!")
                     return
 
-                print(">>> [디버그] Gemini 클라이언트 생성 시작...")
-                client = genai.Client(api_key=GEMINI_API_KEY)
-                print(">>> [디버그] Gemini 클라이언트 생성 완료")
+                client = Anthropic(api_key=CLAUDE_API_KEY)
+                print(">>> [디버그] Claude 클라이언트 생성 완료")
 
-                print(">>> [디버그] Gemini API 네트워크 요청 시작...")
-                interaction = client.interactions.create(
-                    model="gemini-3.6-flash",
-                    input=prompt
+                print(">>> [디버그] Claude API 네트워크 요청 시작...")
+                message = client.messages.create(
+                    model="claude-3-5-sonnet-20241022",
+                    max_tokens=100,
+                    messages=[
+                        {"role": "user", "content": prompt}
+                    ]
                 )
-                print(">>> [디버그] Gemini API 응답 수신 완료!")
+                print(">>> [디버그] Claude API 응답 수신 완료!")
 
-                result[0] = interaction.output_text.strip()[:400]
+                result[0] = message.content[0].text.strip()[:400]
                 print(f">>> [디버그] 응답 처리 완료 (길이: {len(result[0])}자)")
             except Exception as e:
-                print(f">>> [디버그] call_gemini 예외 발생: {type(e).__name__}: {e}")
+                print(f">>> [디버그] call_claude 예외 발생: {type(e).__name__}: {e}")
                 import traceback
                 traceback.print_exc()
                 error[0] = str(e)
 
-        # 스레드에서 Gemini 호출 (타임아웃: 20초로 증가)
-        thread = threading.Thread(target=call_gemini, daemon=True)
+        # 스레드에서 Claude 호출 (20초 타임아웃)
+        thread = threading.Thread(target=call_claude, daemon=True)
         thread.start()
-        thread.join(timeout=20)  # 20초로 증가
+        thread.join(timeout=20)
 
         if result[0]:
             print("✅ 투심 분석 완료!\n")
             return result[0]
 
         if error[0]:
-            print(f"⚠️ Gemini 오류: {error[0]}")
+            print(f"⚠️ Claude 오류: {error[0]}")
 
-        # 타임아웃 또는 오류 시 폴백
-        raise Exception("Gemini 응답 없음")
+        raise Exception("Claude 응답 없음")
 
     except Exception as e:
-        print(f"⚠️ Gemini 분석 실패, 폴백 사용: {e}")
+        print(f"⚠️ Claude 분석 실패, 폴백 사용: {e}")
 
         # 폴백: 뉴스 기반 간단한 분석
         sentiment = "중립"
@@ -107,9 +105,7 @@ def analyze_stock(price_data: Dict[str, Any], news_list: List[Dict[str, str]]) -
 
 
 def summarize_news(news_list: List[Dict[str, str]]) -> Optional[str]:
-    """
-    뉴스 요약 (사용되지 않음 - analyze_stock에서 통합)
-    """
+    """뉴스 요약 (사용되지 않음 - analyze_stock에 통합)"""
     if not news_list:
         return None
 
