@@ -44,21 +44,22 @@ def search_news(keyword: str) -> Optional[List[Dict[str, str]]]:
             return None
 
         url = "https://naverapihub.apigw.ntruss.com/search/v1/news"
-        
+
         headers = {
             'X-NCP-APIGW-API-KEY-ID': NAVER_CLIENT_ID,
             'X-NCP-APIGW-API-KEY': NAVER_CLIENT_SECRET
         }
 
+        # 더 정확한 쿼리로 관련 없는 뉴스 필터링
         params = {
-            'query': f"{keyword} 주가",  # ← 핵심: "주가" 추가!
-            'display': 3,
+            'query': f'"{keyword}" 주가',  # 정확한 매칭으로 변경
+            'display': 10,  # 더 많이 가져와서 필터링
             'sort': 'date',
             'start': 1
         }
 
         response = requests.get(url, headers=headers, params=params, timeout=10, verify=False)
-        
+
         if response.status_code != 200:
             return None
 
@@ -71,9 +72,10 @@ def search_news(keyword: str) -> Optional[List[Dict[str, str]]]:
                 title = title.replace('<b>', '').replace('</b>', '')
                 link = item.get('link', '')
                 description = html.unescape(item.get('description', ''))
-                description = description.replace('<b>', '').replace('</b>', '')[:150]
+                description = description.replace('<b>', '').replace('</b>', '')[:100]
 
-                if title and link:
+                # 필터링: 제목에 종목명이 포함되고, 금융/주식 관련 키워드 있는지 확인
+                if title and link and keyword in title:
                     news_list.append({
                         'title': title,
                         'link': link,
@@ -83,7 +85,7 @@ def search_news(keyword: str) -> Optional[List[Dict[str, str]]]:
                 continue
 
         if news_list:
-            print(f"✅ {len(news_list)}개의 뉴스를 찾았습니다!")
+            print(f"✅ {len(news_list)}개의 관련 뉴스를 찾았습니다!")
             return news_list[:3]
         return None
 

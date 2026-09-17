@@ -9,7 +9,7 @@ import asyncio
 from dotenv import load_dotenv
 from youtube import get_youtube_summary
 from stock import get_stock_price, get_stock_news, get_index_price, get_exchange_rate, get_default_indices, get_default_rates
-from llm_helper import analyze_stock
+from llm_helper import analyze_stock, analyze_news_sentiment
 from news import get_ranking_news, search_news
 import FinanceDataReader as fdr
 
@@ -117,7 +117,9 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
                 if ranking:
                     result_text = "📊 **현재 인기 뉴스**\n\n"
                     for i, news in enumerate(ranking[:5], 1):
-                        result_text += f"{i}. {news['title']}\n🔗 {news['link']}\n\n"
+                        sentiment = analyze_news_sentiment("종목", news['title'])
+                        result_text += f"{i}. {sentiment} {news['title']}\n"
+                        result_text += f"   🔗 {news['link']}\n\n"
                 else:
                     result_text = "인기 뉴스를 조회할 수 없습니다."
             else:
@@ -129,7 +131,10 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
                     if news_results:
                         result_text = f"📰 **{stock_name} 뉴스**\n\n"
                         for i, news in enumerate(news_results[:3], 1):
-                            result_text += f"{i}. {news['title']}\n📝 {news['description']}\n🔗 {news['link']}\n\n"
+                            sentiment = analyze_news_sentiment(stock_name, news['title'])
+                            result_text += f"{i}. {sentiment} {news['title']}\n"
+                            result_text += f"   {news['description'][:100]}\n"
+                            result_text += f"   🔗 {news['link']}\n\n"
                     else:
                         result_text = f"'{stock_name}' 관련 뉴스를 찾을 수 없습니다."
                 else:

@@ -11,6 +11,33 @@ load_dotenv()
 CLAUDE_API_KEY = os.getenv('CLAUDE_API_KEY')
 
 
+def analyze_news_sentiment(stock_name: str, news_title: str) -> str:
+    """뉴스의 감정 분석 (긍정/부정/중립) - 빠른 응답용"""
+    try:
+        client = Anthropic(api_key=CLAUDE_API_KEY)
+
+        prompt = f"""{stock_name} 뉴스의 감정만 분석:
+제목: {news_title}
+
+한 글자로 답변: 긍정=📈 / 부정=📉 / 중립=➡️"""
+
+        message = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=10,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        sentiment = message.content[0].text.strip()
+        if "📈" in sentiment or "긍정" in sentiment:
+            return "📈"
+        elif "📉" in sentiment or "부정" in sentiment:
+            return "📉"
+        else:
+            return "➡️"
+    except:
+        return "➡️"
+
+
 def analyze_stock(price_data: Dict[str, Any], news_list: List[Dict[str, str]]) -> Optional[str]:
     """Claude API를 사용한 주식 분석"""
     if not price_data or not news_list:
