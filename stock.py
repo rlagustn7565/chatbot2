@@ -94,17 +94,17 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
             return None
 
         # 최신 데이터 (마지막 행)
-        current_price = float(df['Close'].iloc[-1])
-        high = float(df['High'].iloc[-1])
-        low = float(df['Low'].iloc[-1])
-        volume = int(df['Volume'].iloc[-1])
+        current_price = float(df['Close'].values[-1])
+        high = float(df['High'].values[-1])
+        low = float(df['Low'].values[-1])
+        volume = int(df['Volume'].values[-1])
 
         # 전일 데이터와 비교
         change = 0
         change_rate = 0
 
         if len(df) > 1:
-            prev_price = float(df['Close'].iloc[-2])
+            prev_price = float(df['Close'].values[-2])
             change = current_price - prev_price
             change_rate = (change / prev_price) * 100
 
@@ -167,14 +167,14 @@ def get_index_price(index_name: str) -> Optional[Dict[str, any]]:
             print(f"❌ 지수 데이터를 찾을 수 없습니다.")
             return None
 
-        current_price = float(df['Close'].iloc[-1])
+        current_price = float(df['Close'].values[-1])
 
         # 변화량 계산
         change = 0
         change_rate = 0
 
         if len(df) > 1:
-            prev_price = float(df['Close'].iloc[-2])
+            prev_price = float(df['Close'].values[-2])
             change = current_price - prev_price
             change_rate = (change / prev_price) * 100
 
