@@ -186,22 +186,29 @@ def get_index_price(index_name: str) -> Optional[Dict[str, any]]:
         latest = df.iloc[-1]
         current_price = float(latest['Close'])
 
-        # 변화량 계산
+        # 변화량 계산 (데이터 부족 시 0)
         change = 0
         change_rate = 0
 
         if len(df) > 1:
-            prev = df.iloc[-2]
-            prev_price = float(prev['Close'])
-            change = current_price - prev_price
-            change_rate = (change / prev_price) * 100
+            try:
+                prev = df.iloc[-2]
+                prev_price = float(prev['Close'])
+                change = current_price - prev_price
+                change_rate = (change / prev_price) * 100
+
+                if pd.isna(change_rate):
+                    change_rate = 0
+            except:
+                change = 0
+                change_rate = 0
 
         result = {
             'name': index_name,
             'symbol': symbol,
             'price': current_price,
             'change': change,
-            'change_rate': round(change_rate, 2),
+            'change_rate': round(change_rate, 2) if not pd.isna(change_rate) else 0,
             'date': str(df.index[-1].date())
         }
 
@@ -232,15 +239,23 @@ def get_exchange_rate(currency_pair: str) -> Optional[Dict[str, any]]:
         latest = df.iloc[-1]
         current_rate = float(latest['Close'])
 
-        # 변화량 계산
+        # 변화량 계산 (데이터 부족 시 0으로 설정)
         change = 0
         change_rate = 0
 
         if len(df) > 1:
-            prev = df.iloc[-2]
-            prev_rate = float(prev['Close'])
-            change = current_rate - prev_rate
-            change_rate = (change / prev_rate) * 100
+            try:
+                prev = df.iloc[-2]
+                prev_rate = float(prev['Close'])
+                change = current_rate - prev_rate
+                change_rate = (change / prev_rate) * 100
+
+                # nan 값 체크
+                if pd.isna(change_rate):
+                    change_rate = 0
+            except:
+                change = 0
+                change_rate = 0
 
         result = {
             'pair': currency_pair,

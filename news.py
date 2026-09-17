@@ -51,7 +51,7 @@ def search_news(keyword: str) -> Optional[List[Dict[str, str]]]:
         }
 
         params = {
-            'query': keyword,
+            'query': f"{keyword} 주가",  # ← 핵심: "주가" 추가!
             'display': 3,
             'sort': 'date',
             'start': 1
