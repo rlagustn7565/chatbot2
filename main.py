@@ -186,7 +186,7 @@ async def health_check():
 # ============================================================
 
 def analyze_stock_full(stock_name: str) -> Optional[str]:
-    """주식 종목 분석 (가격 + 뉴스 요약)"""
+    """주식 종목 분석 (가격 + 뉴스 + 투심)"""
     try:
         price_data = get_stock_price(stock_name)
         if not price_data:
@@ -201,9 +201,19 @@ def analyze_stock_full(stock_name: str) -> Optional[str]:
 💰 {price_data['price']:,.0f}원 ({price_data['change_rate']:+.2f}%)
 📊 고가: {price_data['high']:,.0f}원 / 저가: {price_data['low']:,.0f}원"""
 
-        # 뉴스 추가
+        # 즉시 투심 분석 추가
         if news_list and len(news_list) > 0:
-            result += f"\n\n📰 최신 뉴스:\n• {news_list[0]['title']}"
+            sentiment = analyze_news_sentiment(stock_name, news_list[0]['title'])
+            result += f"\n\n{sentiment} 투자심리: "
+
+            if sentiment == "📈":
+                result += "긍정적"
+            elif sentiment == "📉":
+                result += "부정적"
+            else:
+                result += "중립"
+
+            result += f"\n📰 {news_list[0]['title']}"
 
         return result
 

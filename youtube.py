@@ -1,21 +1,15 @@
 import re
 import os
 from typing import Optional
-import urllib3
 from anthropic import Anthropic
-from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+try:
+    from youtube_transcript_api import YouTubeTranscriptApi
+    TRANSCRIPT_API_AVAILABLE = True
+except ImportError:
+    TRANSCRIPT_API_AVAILABLE = False
 
 CLAUDE_API_KEY = os.getenv('CLAUDE_API_KEY')
-
-# 프록시 리스트 (youtube-transcript-api용 requests)
-PROXIES = [
-    {'http': 'http://45.142.212.109:8080', 'https': 'http://45.142.212.109:8080'},
-    {'http': 'http://34.159.224.249:3128', 'https': 'http://34.159.224.249:3128'},
-    {'http': 'http://35.239.31.112:3128', 'https': 'http://35.239.31.112:3128'},
-]
 
 
 def extract_video_id(url: str) -> Optional[str]:
@@ -31,6 +25,9 @@ def extract_video_id(url: str) -> Optional[str]:
 
 def get_youtube_transcript(url: str) -> Optional[str]:
     """youtube-transcript-api를 사용한 자막 추출"""
+    if not TRANSCRIPT_API_AVAILABLE:
+        return None
+
     video_id = extract_video_id(url)
     if not video_id:
         print("❌ 유효한 유튜브 URL이 아닙니다.")
@@ -39,50 +36,35 @@ def get_youtube_transcript(url: str) -> Optional[str]:
     print(f"🎥 Video ID: {video_id}")
     print("📝 자막을 가져오는 중...")
 
-    # 프록시 없이 먼저 시도 (Render 새 IP)
-    transcript = _try_fetch_transcript(video_id, None)
-    if transcript:
-        return transcript
-
-    # 프록시로 재시도
-    print("🔄 프록시를 사용하여 재시도 중...")
-    for i, proxy in enumerate(PROXIES, 1):
-        print(f"   프록시 {i}/{len(PROXIES)} 시도 중...")
-        transcript = _try_fetch_transcript(video_id, proxy)
-        if transcript:
-            return transcript
-
-    print("❌ 모든 방법으로도 자막을 가져올 수 없습니다.")
-    return None
-
-
-def _try_fetch_transcript(video_id: str, proxy: Optional[dict] = None) -> Optional[str]:
-    """video ID로 자막 가져오기 시도"""
     try:
-        # 한국어 자막 시도
+        # 사용 가능한 자막 언어 조회
         try:
-            transcripts = YouTubeTranscriptApi.get_transcript(video_id, languages=['ko'])
-            print("✅ 한국어 자막 찾음!")
-            return '\n'.join([t['text'] for t in transcripts])
-        except (TranscriptsDisabled, NoTranscriptFound):
-            pass
+            from youtube_transcript_api._errors import TranscriptsDisabled
+            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
 
-        # 영어 자막 시도
-        try:
-            transcripts = YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
-            print("✅ 영어 자막 찾음!")
-            return '\n'.join([t['text'] for t in transcripts])
-        except (TranscriptsDisabled, NoTranscriptFound):
-            pass
+            # 한국어 자막 우선
+            if 'ko' in [t.language_code for t in transcript_list.manually_created_transcripts]:
+                transcripts = transcript_list.find_transcript(['ko']).fetch()
+                print("✅ 한국어 자막 찾음!")
+                return '\n'.join([t['text'] for t in transcripts])
 
-        # 자동생성 자막 시도
-        try:
-            transcripts = YouTubeTranscriptApi.get_transcript(video_id)
-            print("✅ 자동생성 자막 찾음!")
-            return '\n'.join([t['text'] for t in transcripts])
-        except:
-            pass
+            # 영어 자막
+            if 'en' in [t.language_code for t in transcript_list.manually_created_transcripts]:
+                transcripts = transcript_list.find_transcript(['en']).fetch()
+                print("✅ 영어 자막 찾음!")
+                return '\n'.join([t['text'] for t in transcripts])
 
+            # 자동생성 자막
+            if transcript_list.auto_generated_transcripts:
+                transcripts = transcript_list.auto_generated_transcripts[0].fetch()
+                print("✅ 자동생성 자막 찾음!")
+                return '\n'.join([t['text'] for t in transcripts])
+
+        except Exception as e:
+            print(f"   API 호출 실패: {type(e).__name__}")
+            return None
+
+        print("❌ 자막을 찾을 수 없습니다.")
         return None
 
     except Exception as e:
@@ -133,6 +115,9 @@ def get_youtube_summary(url: str) -> Optional[str]:
     print("=" * 60)
     print("📺 유튜브 영상 요약 시작")
     print("=" * 60 + "\n")
+
+    if not TRANSCRIPT_API_AVAILABLE:
+        return "❌ YouTube 기능이 준비되지 않았습니다."
 
     transcript = get_youtube_transcript(url)
 

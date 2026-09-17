@@ -240,28 +240,29 @@ def get_exchange_rate(currency_pair: str) -> Optional[Dict[str, any]]:
         current_rate = float(latest['Close'])
 
         # 변화량 계산 (데이터 부족 시 0으로 설정)
-        change = 0
-        change_rate = 0
+        change = 0.0
+        change_rate = 0.0
 
         if len(df) > 1:
             try:
                 prev = df.iloc[-2]
                 prev_rate = float(prev['Close'])
-                change = current_rate - prev_rate
-                change_rate = (change / prev_rate) * 100
+                diff = current_rate - prev_rate
+                rate = (diff / prev_rate) * 100 if prev_rate != 0 else 0
 
-                # nan 값 체크
-                if pd.isna(change_rate):
-                    change_rate = 0
+                # nan 값 체크 및 정리
+                if not pd.isna(diff) and not pd.isna(rate):
+                    change = float(diff)
+                    change_rate = float(rate)
             except:
-                change = 0
-                change_rate = 0
+                change = 0.0
+                change_rate = 0.0
 
         result = {
             'pair': currency_pair,
             'rate': round(current_rate, 2),
             'change': round(change, 2),
-            'change_rate': round(change_rate, 2),
+            'change_rate': round(change_rate, 2) if change_rate != 0 else 0.0,
             'date': str(df.index[-1].date())
         }
 
