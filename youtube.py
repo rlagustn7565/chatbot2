@@ -1,22 +1,20 @@
-﻿import re
+import re
 import os
 from typing import Optional
 import urllib3
 from anthropic import Anthropic
-from yt_dlp import YoutubeDL
+from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 CLAUDE_API_KEY = os.getenv('CLAUDE_API_KEY')
 
-# 강화된 프록시 리스트
+# 프록시 리스트 (youtube-transcript-api용 requests)
 PROXIES = [
-    'http://45.142.212.109:8080',
-    'http://34.159.224.249:3128',
-    'http://35.239.31.112:3128',
-    'http://190.92.153.37:3128',
-    'http://35.198.154.165:3128',
-    'socks5://127.0.0.1:1080',
+    {'http': 'http://45.142.212.109:8080', 'https': 'http://45.142.212.109:8080'},
+    {'http': 'http://34.159.224.249:3128', 'https': 'http://34.159.224.249:3128'},
+    {'http': 'http://35.239.31.112:3128', 'https': 'http://35.239.31.112:3128'},
 ]
 
 
@@ -32,7 +30,7 @@ def extract_video_id(url: str) -> Optional[str]:
 
 
 def get_youtube_transcript(url: str) -> Optional[str]:
-    """yt-dlp로 자막 추출 (프록시 지원)"""
+    """youtube-transcript-api를 사용한 자막 추출"""
     video_id = extract_video_id(url)
     if not video_id:
         print("❌ 유효한 유튜브 URL이 아닙니다.")
@@ -41,65 +39,54 @@ def get_youtube_transcript(url: str) -> Optional[str]:
     print(f"🎥 Video ID: {video_id}")
     print("📝 자막을 가져오는 중...")
 
-    # 프록시 없이 먼저 시도
-    transcript = _try_fetch_with_proxy(url, None)
+    # 프록시 없이 먼저 시도 (Render 새 IP)
+    transcript = _try_fetch_transcript(video_id, None)
     if transcript:
         return transcript
-    
+
     # 프록시로 재시도
     print("🔄 프록시를 사용하여 재시도 중...")
     for i, proxy in enumerate(PROXIES, 1):
         print(f"   프록시 {i}/{len(PROXIES)} 시도 중...")
-        transcript = _try_fetch_with_proxy(url, proxy)
+        transcript = _try_fetch_transcript(video_id, proxy)
         if transcript:
             return transcript
-    
+
     print("❌ 모든 방법으로도 자막을 가져올 수 없습니다.")
     return None
 
 
-def _try_fetch_with_proxy(url: str, proxy: Optional[str] = None) -> Optional[str]:
-    """프록시를 사용하여 자막 가져오기 시도"""
+def _try_fetch_transcript(video_id: str, proxy: Optional[dict] = None) -> Optional[str]:
+    """video ID로 자막 가져오기 시도"""
     try:
-        ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
-            'writesubtitles': True,
-            'skip_unavailable_fragments': True,
-            'socket_timeout': 30,
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            },
-            'extractor_args': {'youtube': {'skip': ['hls', 'dash']}},
-        }
+        # 한국어 자막 시도
+        try:
+            transcripts = YouTubeTranscriptApi.get_transcript(video_id, languages=['ko'])
+            print("✅ 한국어 자막 찾음!")
+            return '\n'.join([t['text'] for t in transcripts])
+        except (TranscriptsDisabled, NoTranscriptFound):
+            pass
 
-        if proxy:
-            ydl_opts['proxy'] = proxy
+        # 영어 자막 시도
+        try:
+            transcripts = YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
+            print("✅ 영어 자막 찾음!")
+            return '\n'.join([t['text'] for t in transcripts])
+        except (TranscriptsDisabled, NoTranscriptFound):
+            pass
 
-        with YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            
-            # 한국어 자막 찾기
-            if 'subtitles' in info:
-                if 'ko' in info['subtitles']:
-                    subs = info['subtitles']['ko']
-                    return '\n'.join([s['text'] for s in subs])
-                
-                # 영어 자막
-                if 'en' in info['subtitles']:
-                    subs = info['subtitles']['en']
-                    return '\n'.join([s['text'] for s in subs])
-            
-            # 자동 생성 자막
-            if 'automatic_captions' in info:
-                for lang in ['ko', 'en']:
-                    if lang in info['automatic_captions']:
-                        subs = info['automatic_captions'][lang]
-                        return '\n'.join([s['text'] for s in subs])
-        
+        # 자동생성 자막 시도
+        try:
+            transcripts = YouTubeTranscriptApi.get_transcript(video_id)
+            print("✅ 자동생성 자막 찾음!")
+            return '\n'.join([t['text'] for t in transcripts])
+        except:
+            pass
+
         return None
 
     except Exception as e:
+        print(f"   오류: {type(e).__name__}")
         return None
 
 

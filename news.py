@@ -52,8 +52,8 @@ def search_news(keyword: str) -> Optional[List[Dict[str, str]]]:
 
         # 더 정확한 쿼리로 관련 없는 뉴스 필터링
         params = {
-            'query': f'"{keyword}" 주가',  # 정확한 매칭으로 변경
-            'display': 10,  # 더 많이 가져와서 필터링
+            'query': keyword,  # 종목명만으로 검색 (주가 제거 - 검색 결과 향상)
+            'display': 20,  # 더 많이 가져와서 필터링
             'sort': 'date',
             'start': 1
         }
@@ -72,7 +72,7 @@ def search_news(keyword: str) -> Optional[List[Dict[str, str]]]:
                 title = title.replace('<b>', '').replace('</b>', '')
                 link = item.get('link', '')
                 description = html.unescape(item.get('description', ''))
-                description = description.replace('<b>', '').replace('</b>', '')[:100]
+                description = description.replace('<b>', '').replace('</b>', '')[:200]
 
                 # 필터링: 제목에 종목명이 포함되고, 금융/주식 관련 키워드 있는지 확인
                 if title and link and keyword in title:

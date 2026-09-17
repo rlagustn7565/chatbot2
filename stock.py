@@ -330,7 +330,7 @@ def get_stock_news(stock_name: str) -> Optional[List[Dict[str, str]]]:
 
                 link = item.get('link', '')
                 description = html.unescape(item.get('description', ''))
-                description = description.replace('<b>', '').replace('</b>', '')
+                description = description.replace('<b>', '').replace('</b>', '')[:200]
 
                 if title and link:
                     news_list.append({

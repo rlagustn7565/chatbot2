@@ -12,30 +12,28 @@ CLAUDE_API_KEY = os.getenv('CLAUDE_API_KEY')
 
 
 def analyze_news_sentiment(stock_name: str, news_title: str) -> str:
-    """뉴스의 감정 분석 (긍정/부정/중립) - 빠른 응답용"""
-    try:
-        client = Anthropic(api_key=CLAUDE_API_KEY)
+    """뉴스의 감정 분석 (긍정/부정/중립) - 키워드 기반 즉시 분석"""
+    title_lower = news_title.lower()
 
-        prompt = f"""{stock_name} 뉴스의 감정만 분석:
-제목: {news_title}
+    # 긍정 키워드
+    positive_words = ['상승', '호황', '증가', '상향', '강세', '호실적', '실적개선',
+                      '신제품', '신사업', '주문증가', '수주', '성장', '확대',
+                      '신기록', '최고', '기록', '돌파', '사상최고', '기대', '호가']
 
-한 글자로 답변: 긍정=📈 / 부정=📉 / 중립=➡️"""
+    # 부정 키워드
+    negative_words = ['하락', '부진', '감소', '하향', '약세', '악화', '실적악화',
+                      '손실', '구조조정', '감원', '적자', '부채', '위험',
+                      '규제', '소송', '리콜', '감시', '경고', '부정적', '우려', '조정']
 
-        message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=10,
-            messages=[{"role": "user", "content": prompt}]
-        )
-
-        sentiment = message.content[0].text.strip()
-        if "📈" in sentiment or "긍정" in sentiment:
+    for word in positive_words:
+        if word in title_lower:
             return "📈"
-        elif "📉" in sentiment or "부정" in sentiment:
+
+    for word in negative_words:
+        if word in title_lower:
             return "📉"
-        else:
-            return "➡️"
-    except:
-        return "➡️"
+
+    return "➡️"
 
 
 def analyze_stock(price_data: Dict[str, Any], news_list: List[Dict[str, str]]) -> Optional[str]:
