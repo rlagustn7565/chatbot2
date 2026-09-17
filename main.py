@@ -273,6 +273,13 @@ def send_callback_result(callback_url: str, result_text: str):
     분석 결과를 카카오톡의 콜백 URL로 POST 요청으로 전송
     """
     try:
+        # 텍스트 정제: 너무 긴 경우 자르기 (카카오톡 제한: ~2000자)
+        if len(result_text) > 1800:
+            result_text = result_text[:1797] + "..."
+
+        # 마크다운 형식을 일반 텍스트로 변환 (**, *, # 제거)
+        result_text = result_text.replace("**", "").replace("*", "").replace("# ", "")
+
         # 결과를 카카오톡 SkillPayload 형식으로 구성
         payload = {
             "version": "2.0",
@@ -287,17 +294,21 @@ def send_callback_result(callback_url: str, result_text: str):
             }
         }
 
+        print(f"📤 콜백 전송 중... (텍스트 길이: {len(result_text)}자)")
+
         # POST 요청으로 콜백 URL에 결과 전송
         response = requests.post(
             callback_url,
             json=payload,
-            timeout=10
+            timeout=10,
+            headers={"Content-Type": "application/json"}
         )
 
         if response.status_code == 200:
             print(f"✅ 콜백 전송 성공 (상태코드: {response.status_code})")
         else:
             print(f"⚠️ 콜백 전송 실패 (상태코드: {response.status_code})")
+            print(f"   응답: {response.text}")
 
     except Exception as e:
         print(f"❌ 콜백 전송 중 오류: {e}")
