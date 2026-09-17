@@ -33,17 +33,10 @@ def analyze_stock(price_data: Dict[str, Any], news_list: List[Dict[str, str]]) -
             title = news.get('title', '')[:40]
             news_text += f"기사{i}: {title}\n"
 
-        prompt = f"""{stock_name} 투심 분석.
+        prompt = f"""{stock_name}: {current_price:,.0f}원 ({change_rate:+.2f}%)
+뉴스: {news_text}
 
-현재가: {current_price:,.0f}원 ({change_rate:+.2f}%)
-
-뉴스:
-{news_text}
-
-이 형식으로만 작성:
-📈 현재가: [한 줄]
-⚖️ 투심: [긍정/부정/중립]
-🔗 관련주: [2-3개]"""
+긍정/부정/중립만 답변."""
 
         result = [None]
         error = [None]

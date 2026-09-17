@@ -1,16 +1,14 @@
 import os
 import requests
 from typing import Dict, Any, Optional
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI
 from pydantic import BaseModel
-import threading
 
 # 모듈 임포트
 from dotenv import load_dotenv
 from youtube import get_youtube_summary
-from news import search_news, get_article_text
 from stock import get_stock_price, get_stock_news, get_index_price, get_exchange_rate
-from llm_helper import analyze_stock, summarize_news
+from llm_helper import analyze_stock
 
 # .env 파일 로드
 load_dotenv()
@@ -22,45 +20,36 @@ app = FastAPI()
 # ============================================================
 
 class KakaoRequest(BaseModel):
-    """카카오톡 스킬에서 받는 요청 모델"""
     userRequest: Dict[str, Any]
-
 
 class SimpleText(BaseModel):
     text: str
 
-
 class Output(BaseModel):
     simpleText: SimpleText
 
-
 class Template(BaseModel):
     outputs: list[Output]
-
 
 class SkillPayload(BaseModel):
     version: str = "2.0"
     template: Template
 
-
 # ============================================================
-# [2] FastAPI 라우터 - 즉시 응답 엔드포인트
+# [2] FastAPI 라우터 - 동기 즉시 응답
 # ============================================================
 
 @app.post("/api/chat")
-async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
+async def chat(request: KakaoRequest):
     """
-    카카오톡에서 사용자 발화를 받아 즉시 응답하고,
-    백그라운드에서 분석 작업을 실행합니다.
+    카카오톡에서 사용자 발화를 받아 즉시 분석 결과를 반환합니다.
+    (콜백 구조 제거 - 동기 처리)
     """
     try:
-        # userRequest에서 발화와 콜백URL 파싱
         user_request = request.userRequest
         user_utterance = user_request.get("utterance", "").strip()
-        callback_url = user_request.get("callbackUrl")
 
         print(f"[📞 사용자 발화] {user_utterance}")
-        print(f"[📡 콜백 URL] {callback_url}")
 
         # ========== 헬프 명령어 처리 ==========
         if user_utterance.lower() in ["/help", "도움말", "사용법", "명령어", "help"]:
@@ -69,172 +58,82 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
 
 📈 주식 종목 분석
 - "삼성전자", "SK하이닉스", "LG화학" 등
-- 실시간 주가, 뉴스, AI 투심 분석 제공
+- 실시간 주가, 뉴스, AI 투심 분석
 
 📺 유튜브 영상 요약
-- 유튜브 링크 입력 (예: https://youtube.com/watch?v=...)
+- 유튜브 링크 입력
 - 자막 추출 → AI 요약
 
 📊 지수 조회
-- "코스피", "KOSDAQ", "나스닥", "S&P500" 등
-- 현재값, 변화율 제공
+- "코스피", "KOSDAQ", "나스닥", "S&P500"
 
 💱 환율 조회
-- "USD/KRW", "원달러", "EUR/USD", "JPY/KRW"
-- 실시간 환율 정보
+- "USD/KRW", "원달러", "EUR/USD"
 
 📰 뉴스 검색
-- "삼성전자 뉴스", "AI 뉴스" 등
-- 최신 뉴스 3개 제공
+- "삼성전자 뉴스", "AI 뉴스"
 
-💡 팁: 아무 종목명이나 입력하면 분석 시작!"""
+💡 아무 종목명이나 입력하면 분석 시작!"""
 
-            help_response = SkillPayload(
+            return SkillPayload(
                 version="2.0",
                 template=Template(
-                    outputs=[
-                        Output(
-                            simpleText=SimpleText(text=help_text)
-                        )
-                    ]
+                    outputs=[Output(simpleText=SimpleText(text=help_text))]
                 )
-            )
-            return help_response.model_dump()
+            ).model_dump()
 
-        # 즉시 응답: "분석 중입니다" 메시지
-        immediate_response = SkillPayload(
-            version="2.0",
-            template=Template(
-                outputs=[
-                    Output(
-                        simpleText=SimpleText(
-                            text="데이터를 수집하고 AI가 분석 중입니다 ⏳\n잠시만 기다려주세요."
-                        )
-                    )
-                ]
-            )
-        )
-
-        # 백그라운드 작업을 스레드로 즉시 실행 (더 빠른 응답)
-        if callback_url:
-            thread = threading.Thread(
-                target=process_analysis_background,
-                args=(user_utterance, callback_url),
-                daemon=True
-            )
-            thread.start()
-
-        return immediate_response.model_dump()
-
-    except Exception as e:
-        print(f"❌ 요청 처리 중 오류: {e}")
-        return SkillPayload(
-            version="2.0",
-            template=Template(
-                outputs=[
-                    Output(
-                        simpleText=SimpleText(text="요청 처리 중 오류가 발생했습니다.")
-                    )
-                ]
-            )
-        ).model_dump()
-
-
-@app.get("/health")
-async def health_check():
-    """헬스 체크"""
-    return {"status": "ok"}
-
-
-# ============================================================
-# [3] 백그라운드 작업 함수 - 분석 로직
-# ============================================================
-
-def process_analysis_background(utterance: str, callback_url: str):
-    """
-    백그라운드에서 실행되는 분석 함수
-    """
-    try:
-        print(f"\n[🔄 백그라운드 분석 시작] {utterance}")
-        print(f">>> [디버그] 백그라운드 함수 진입: {utterance}")
-
+        # ========== 분석 시작 (동기 처리) ==========
         result_text = None
 
-        try:
-            # ========== 분기 1: 유튜브 링크 감지 ==========
-            if "youtube.com" in utterance or "youtu.be" in utterance:
-                print("[🎥 유튜브 분석 시작]")
-                print(">>> [디버그] 유튜브 분석 호출")
-                result_text = analyze_youtube(utterance)
-                print(f">>> [디버그] 유튜브 분석 완료: {len(result_text or '')}자")
+        # 유튜브 링크 감지
+        if "youtube.com" in user_utterance or "youtu.be" in user_utterance:
+            print("[🎥 유튜브 분석]")
+            result_text = get_youtube_summary(user_utterance)
 
-            # ========== 분기 2: 주식 종목 분석 ==========
+        else:
+            # 종목명 추출
+            stock_name = extract_stock_name(user_utterance)
+            if stock_name:
+                print(f"[📈 주식 분석: {stock_name}]")
+                result_text = analyze_stock_full(stock_name)
             else:
-                stock_name = extract_stock_name(utterance)
-                if stock_name:
-                    print(f"[📈 주식 분석 시작: {stock_name}]")
-                    print(f">>> [디버그] 주식 분석 호출: {stock_name}")
-                    result_text = analyze_stock_full(stock_name)
-                    print(f">>> [디버그] 주식 분석 완료: {len(result_text or '')}자")
-
-                # ========== 분기 3: 지수/환율 분석 ==========
-                else:
-                    print("[📊 지수/환율 조회 시도]")
-                    print(">>> [디버그] 지수/환율 조회 호출")
-                    result_text = analyze_index_or_exchange(utterance)
-                    print(f">>> [디버그] 지수/환율 조회 완료: {len(result_text or '')}자")
-
-        except Exception as analysis_error:
-            print(f">>> [디버그] 분석 중 예외: {type(analysis_error).__name__}: {analysis_error}")
-            import traceback
-            traceback.print_exc()
-            raise analysis_error
+                # 지수/환율 조회
+                print("[📊 지수/환율 조회]")
+                result_text = analyze_index_or_exchange(user_utterance)
 
         # 결과가 없으면 안내 메시지
         if not result_text:
-            print(">>> [디버그] 분석 결과가 None, 안내 메시지 사용")
-            result_text = "죄송합니다. 요청하신 내용을 분석할 수 없습니다.\n\n다음과 같이 요청해 보세요:\n• 유튜브 링크 (예: https://youtube.com/watch?v=...)\n• 종목명 (예: 삼성전자, SK하이닉스)\n• 지수/환율 (예: KOSPI, USD/KRW)"
+            result_text = "죄송합니다. 요청하신 내용을 분석할 수 없습니다.\n\n다음과 같이 요청해 보세요:\n• 유튜브 링크\n• 종목명 (예: 삼성전자)\n• 지수/환율 (예: KOSPI, USD/KRW)"
 
-        print(f">>> [디버그] 콜백 전송 준비: {len(result_text)}자")
-        # 콜백 URL로 결과 전송
-        send_callback_result(callback_url, result_text)
-        print(">>> [디버그] 콜백 전송 완료")
+        # 즉시 결과 반환
+        return SkillPayload(
+            version="2.0",
+            template=Template(
+                outputs=[Output(simpleText=SimpleText(text=result_text))]
+            )
+        ).model_dump()
 
     except Exception as e:
-        print(f"\n>>> [치명적 오류] 백그라운드 작업 실패: {type(e).__name__}: {e}")
+        print(f"❌ 요청 처리 중 오류: {e}")
         import traceback
         traceback.print_exc()
-        try:
-            send_callback_result(callback_url, f"분석 중 오류가 발생했습니다.\n\n오류: {str(e)}")
-        except Exception as callback_error:
-            print(f">>> [치명적 오류] 콜백 전송도 실패: {callback_error}")
+        return SkillPayload(
+            version="2.0",
+            template=Template(
+                outputs=[Output(simpleText=SimpleText(text="요청 처리 중 오류가 발생했습니다."))]
+            )
+        ).model_dump()
 
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
 
-def analyze_youtube(utterance: str) -> Optional[str]:
-    """
-    유튜브 링크 처리
-    """
-    try:
-        # youtube.py에서 get_youtube_summary 호출
-        # (youtube.py에서 extract_video_id, get_youtube_transcript, summarize_transcript 사용)
-        from youtube import get_youtube_summary
-
-        summary = get_youtube_summary(utterance)
-
-        if summary:
-            return f"📺 **유튜브 영상 요약**\n\n{summary}"
-        else:
-            return "유튜브 영상 분석에 실패했습니다."
-
-    except Exception as e:
-        print(f"❌ 유튜브 분석 오류: {e}")
-        return None
-
+# ============================================================
+# [3] 분석 함수
+# ============================================================
 
 def analyze_stock_full(stock_name: str) -> Optional[str]:
-    """
-    주식 종목 분석 (주가 + 뉴스 + LLM 분석)
-    """
+    """주식 종목 분석"""
     try:
         # 1. 주가 정보 조회
         price_data = get_stock_price(stock_name)
@@ -246,7 +145,7 @@ def analyze_stock_full(stock_name: str) -> Optional[str]:
         if not news_list:
             return f"'{stock_name}'에 대한 뉴스를 찾을 수 없습니다."
 
-        # 3. LLM으로 투심 분석
+        # 3. LLM으로 투심 분석 (5초 내 응답)
         analysis_result = analyze_stock(price_data, news_list)
 
         if analysis_result:
@@ -258,11 +157,8 @@ def analyze_stock_full(stock_name: str) -> Optional[str]:
         print(f"❌ 주식 분석 오류: {e}")
         return None
 
-
 def analyze_index_or_exchange(utterance: str) -> Optional[str]:
-    """
-    지수/환율 조회
-    """
+    """지수/환율 조회"""
     try:
         result_parts = []
 
@@ -273,7 +169,7 @@ def analyze_index_or_exchange(utterance: str) -> Optional[str]:
                 index_data = get_index_price(idx)
                 if index_data:
                     result_parts.append(
-                        f"📈 **{index_data.get('name', idx)}**\n"
+                        f"📈 {index_data.get('name', idx)}\n"
                         f"현재값: {index_data.get('price', 'N/A'):,.0f}\n"
                         f"변화: {index_data.get('change', 0):+,.0f} ({index_data.get('change_rate', 0):+.2f}%)"
                     )
@@ -288,7 +184,7 @@ def analyze_index_or_exchange(utterance: str) -> Optional[str]:
                 rate_data = get_exchange_rate(exch)
                 if rate_data:
                     result_parts.append(
-                        f"💱 **{rate_data.get('pair', exch)}**\n"
+                        f"💱 {rate_data.get('pair', exch)}\n"
                         f"환율: {rate_data.get('rate', 'N/A'):,.2f}\n"
                         f"변화: {rate_data.get('change', 0):+,.2f} ({rate_data.get('change_rate', 0):+.2f}%)"
                     )
@@ -302,12 +198,8 @@ def analyze_index_or_exchange(utterance: str) -> Optional[str]:
         print(f"❌ 지수/환율 조회 오류: {e}")
         return None
 
-
 def extract_stock_name(utterance: str) -> Optional[str]:
-    """
-    발화에서 종목명 추출 (간단한 휴리스틱)
-    """
-    # 주요 대형주 리스트
+    """발화에서 종목명 추출"""
     major_stocks = [
         '삼성전자', 'SK하이닉스', 'LG화학', 'NAVER', 'KB금융',
         '신한지주', '현대자동차', 'LG전자', '삼성SDI', '삼성화학',
@@ -319,53 +211,6 @@ def extract_stock_name(utterance: str) -> Optional[str]:
             return stock
 
     return None
-
-
-def send_callback_result(callback_url: str, result_text: str):
-    """
-    분석 결과를 카카오톡의 콜백 URL로 POST 요청으로 전송
-    """
-    try:
-        # 텍스트 정제: 너무 긴 경우 자르기 (카카오톡 제한: ~2000자)
-        if len(result_text) > 1800:
-            result_text = result_text[:1797] + "..."
-
-        # 마크다운 형식을 일반 텍스트로 변환 (**, *, # 제거)
-        result_text = result_text.replace("**", "").replace("*", "").replace("# ", "")
-
-        # 결과를 카카오톡 SkillPayload 형식으로 구성
-        payload = {
-            "version": "2.0",
-            "template": {
-                "outputs": [
-                    {
-                        "simpleText": {
-                            "text": result_text
-                        }
-                    }
-                ]
-            }
-        }
-
-        print(f"📤 콜백 전송 중... (텍스트 길이: {len(result_text)}자)")
-
-        # POST 요청으로 콜백 URL에 결과 전송
-        response = requests.post(
-            callback_url,
-            json=payload,
-            timeout=10,
-            headers={"Content-Type": "application/json"}
-        )
-
-        if response.status_code == 200:
-            print(f"✅ 콜백 전송 성공 (상태코드: {response.status_code})")
-        else:
-            print(f"⚠️ 콜백 전송 실패 (상태코드: {response.status_code})")
-            print(f"   응답: {response.text}")
-
-    except Exception as e:
-        print(f"❌ 콜백 전송 중 오류: {e}")
-
 
 # ============================================================
 # [4] 서버 실행
