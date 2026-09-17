@@ -56,11 +56,50 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
     try:
         # userRequest에서 발화와 콜백URL 파싱
         user_request = request.userRequest
-        user_utterance = user_request.get("utterance", "")
+        user_utterance = user_request.get("utterance", "").strip()
         callback_url = user_request.get("callbackUrl")
 
         print(f"[📞 사용자 발화] {user_utterance}")
         print(f"[📡 콜백 URL] {callback_url}")
+
+        # ========== 헬프 명령어 처리 ==========
+        if user_utterance.lower() in ["/help", "도움말", "사용법", "명령어", "help"]:
+            print("[ℹ️ 헬프 요청]")
+            help_text = """🤖 AI 금융 챗봇 - 사용 가능한 기능
+
+📈 주식 종목 분석
+- "삼성전자", "SK하이닉스", "LG화학" 등
+- 실시간 주가, 뉴스, AI 투심 분석 제공
+
+📺 유튜브 영상 요약
+- 유튜브 링크 입력 (예: https://youtube.com/watch?v=...)
+- 자막 추출 → AI 요약
+
+📊 지수 조회
+- "코스피", "KOSDAQ", "나스닥", "S&P500" 등
+- 현재값, 변화율 제공
+
+💱 환율 조회
+- "USD/KRW", "원달러", "EUR/USD", "JPY/KRW"
+- 실시간 환율 정보
+
+📰 뉴스 검색
+- "삼성전자 뉴스", "AI 뉴스" 등
+- 최신 뉴스 3개 제공
+
+💡 팁: 아무 종목명이나 입력하면 분석 시작!"""
+
+            help_response = SkillPayload(
+                version="2.0",
+                template=Template(
+                    outputs=[
+                        Output(
+                            simpleText=SimpleText(text=help_text)
+                        )
+                    ]
+                )
+            )
+            return help_response.model_dump()
 
         # 즉시 응답: "분석 중입니다" 메시지
         immediate_response = SkillPayload(
