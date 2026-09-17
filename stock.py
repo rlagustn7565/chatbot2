@@ -74,7 +74,9 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
 
         # 52주 데이터 조회 (1년)
         start_date_52w = today - timedelta(days=365)
+        print(f">>> [디버그] 52주 조회 기간: {start_date_52w.date()} ~ {today.date()}")
         df_52w = fdr.DataReader(stock_code, start=start_date_52w)
+        print(f">>> [디버그] 52주 데이터 행 수: {len(df_52w)}")
 
         # 최신 데이터
         latest = df.iloc[-1]
@@ -95,11 +97,15 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
         if not df_52w.empty:
             high_52w = float(df_52w['High'].max())
             low_52w = float(df_52w['Low'].min())
+            print(f">>> [디버그] 52주 High 데이터 수: {df_52w['High'].count()}, 최대값: {high_52w}")
+            print(f">>> [디버그] 52주 Low 데이터 수: {df_52w['Low'].count()}, 최소값: {low_52w}")
+            print(f">>> [디버그] 52주 데이터 범위: {df_52w.index[0].date()} ~ {df_52w.index[-1].date()}")
         else:
+            print(f">>> [디버그] 52주 데이터가 비어있음")
             high_52w = current_price
             low_52w = current_price
 
-        print(f">>> [디버그] High.max() = {high_52w}, Low.min() = {low_52w}")
+        print(f">>> [디버그] 최종 52주 고가: {high_52w}, 저가: {low_52w}")
 
         # nan 값 체크
         if pd.isna(high_52w) or pd.isna(low_52w):
