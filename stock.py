@@ -7,7 +7,7 @@ import urllib3
 import html
 import pandas as pd
 from datetime import datetime, timedelta
-import yfinance as yf
+import FinanceDataReader as fdr
 import threading
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -73,7 +73,7 @@ def get_stock_code_by_name(stock_name: str) -> Optional[str]:
 
 
 def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
-    """yfinance를 사용한 실시간 주가 조회"""
+    """FinanceDataReader를 사용한 실시간 주가 조회"""
     try:
         stock_code = get_stock_code_by_name(stock_name)
         if not stock_code:
@@ -81,11 +81,14 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
             return None
 
         print(f"📊 {stock_name} 주가 정보 조회 중...")
-        print(f">>> [디버그] yfinance 호출 시작 (종목코드: {stock_code}.KS)")
+        print(f">>> [디버그] FinanceDataReader 호출 시작 (종목코드: {stock_code})")
 
-        # yfinance로 최근 2일 데이터 조회
-        ticker = f"{stock_code}.KS"  # 코스피 종목은 .KS 추가
-        df = yf.download(ticker, period="5d", progress=False)
+        # FinanceDataReader로 최근 2일 데이터 조회
+        today = pd.Timestamp.today()
+        start_date = today - timedelta(days=2)
+
+        print(f">>> [디버그] fdr.DataReader 호출 중...")
+        df = fdr.DataReader(stock_code, start=start_date)
 
         print(f">>> [디버그] 응답 수신 완료! (행 수: {len(df)})")
 
@@ -94,17 +97,19 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
             return None
 
         # 최신 데이터 (마지막 행)
-        current_price = float(df['Close'].values[-1])
-        high = float(df['High'].values[-1])
-        low = float(df['Low'].values[-1])
-        volume = int(df['Volume'].values[-1])
+        latest = df.iloc[-1]
+        current_price = float(latest['Close'])
+        high = float(latest['High'])
+        low = float(latest['Low'])
+        volume = int(latest['Volume'])
 
         # 전일 데이터와 비교
         change = 0
         change_rate = 0
 
         if len(df) > 1:
-            prev_price = float(df['Close'].values[-2])
+            prev = df.iloc[-2]
+            prev_price = float(prev['Close'])
             change = current_price - prev_price
             change_rate = (change / prev_price) * 100
 
@@ -136,7 +141,7 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
 
 
 def get_index_price(index_name: str) -> Optional[Dict[str, any]]:
-    """yfinance를 사용한 지수 조회"""
+    """FinanceDataReader를 사용한 지수 조회"""
     try:
         # 지수 심볼 매핑
         index_map = {
@@ -160,21 +165,23 @@ def get_index_price(index_name: str) -> Optional[Dict[str, any]]:
 
         print(f"📊 {index_name} 지수 조회 중...")
 
-        # yfinance로 데이터 조회
-        df = yf.download(symbol, period="5d", progress=False)
+        # FinanceDataReader로 데이터 조회
+        df = fdr.DataReader(symbol, '2026-09-01')
 
         if df.empty:
             print(f"❌ 지수 데이터를 찾을 수 없습니다.")
             return None
 
-        current_price = float(df['Close'].values[-1])
+        latest = df.iloc[-1]
+        current_price = float(latest['Close'])
 
         # 변화량 계산
         change = 0
         change_rate = 0
 
         if len(df) > 1:
-            prev_price = float(df['Close'].values[-2])
+            prev = df.iloc[-2]
+            prev_price = float(prev['Close'])
             change = current_price - prev_price
             change_rate = (change / prev_price) * 100
 
@@ -211,14 +218,16 @@ def get_exchange_rate(currency_pair: str) -> Optional[Dict[str, any]]:
             print(f"❌ 환율 데이터를 찾을 수 없습니다.")
             return None
 
-        current_rate = float(df['Close'].iloc[-1])
+        latest = df.iloc[-1]
+        current_rate = float(latest['Close'])
 
         # 변화량 계산
         change = 0
         change_rate = 0
 
         if len(df) > 1:
-            prev_rate = float(df['Close'].iloc[-2])
+            prev = df.iloc[-2]
+            prev_rate = float(prev['Close'])
             change = current_rate - prev_rate
             change_rate = (change / prev_rate) * 100
 
