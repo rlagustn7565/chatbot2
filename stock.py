@@ -191,10 +191,8 @@ def get_index_price(index_name: str) -> Optional[Dict[str, any]]:
 
         print(f"📊 {index_name} 지수 조회 중...")
 
-        # FinanceDataReader로 데이터 조회 (더 넓은 기간)
-        today = pd.Timestamp.today()
-        start_date = today - timedelta(days=30)
-        df = fdr.DataReader(symbol, start=start_date)
+        # FinanceDataReader로 데이터 조회 (기존 방식 복구)
+        df = fdr.DataReader(symbol, '2026-09-01')
 
         if df.empty:
             print(f"❌ 지수 데이터를 찾을 수 없습니다.")
@@ -203,48 +201,35 @@ def get_index_price(index_name: str) -> Optional[Dict[str, any]]:
         latest = df.iloc[-1]
         current_price = float(latest['Close'])
 
-        # nan 값 체크
-        if pd.isna(current_price):
-            print(f"❌ 지수 데이터가 유효하지 않습니다.")
-            return None
-
-        # 변화량 계산
-        change = 0.0
-        change_rate = 0.0
+        # 변화량 계산 (데이터 부족 시 0)
+        change = 0
+        change_rate = 0
 
         if len(df) > 1:
             try:
                 prev = df.iloc[-2]
                 prev_price = float(prev['Close'])
+                change = current_price - prev_price
+                change_rate = (change / prev_price) * 100
 
-                # nan 값 체크
-                if pd.isna(prev_price) or prev_price == 0:
-                    change = 0.0
-                    change_rate = 0.0
-                else:
-                    change = float(current_price - prev_price)
-                    change_rate = float((change / prev_price) * 100)
-
-                    # nan 재확인
-                    if pd.isna(change) or pd.isna(change_rate):
-                        change = 0.0
-                        change_rate = 0.0
+                if pd.isna(change_rate):
+                    change_rate = 0
             except:
-                change = 0.0
-                change_rate = 0.0
+                change = 0
+                change_rate = 0
 
         result = {
             'name': index_name,
             'symbol': symbol,
-            'price': round(current_price, 2),
-            'change': round(change, 2),
-            'change_rate': round(change_rate, 2),
+            'price': current_price,
+            'change': change,
+            'change_rate': round(change_rate, 2) if not pd.isna(change_rate) else 0,
             'date': str(df.index[-1].date())
         }
 
         print(f"✅ 지수 조회 완료!")
-        print(f"   현재값: {result['price']:,.2f}")
-        print(f"   변화: {result['change']:+,.2f}")
+        print(f"   현재값: {result['price']:,.0f}")
+        print(f"   변화: {result['change']:+,.0f}")
         print(f"   변화율: {result['change_rate']:+.2f}%")
 
         return result
