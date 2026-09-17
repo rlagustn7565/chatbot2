@@ -8,49 +8,25 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def get_ranking_news() -> Optional[List[Dict[str, str]]]:
-    """네이버 금융의 '많이 본 뉴스' 상위 5개 스크래핑"""
+    """주요 종목의 최신 뉴스 5개 조회"""
     try:
-        print("📊 네이버 금융 인기 뉴스 조회 중...")
+        print("📊 주요 종목 뉴스 조회 중...")
 
-        url = "https://finance.naver.com/news/news_list.naver?mode=LSS2D&section=stock&search=&keyword="
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-
-        response = requests.get(url, headers=headers, timeout=10, verify=False)
-        response.encoding = 'utf-8'
-
-        if response.status_code != 200:
-            print(f"⚠️ 요청 실패: {response.status_code}")
-            return None
-
-        soup = BeautifulSoup(response.content, 'html.parser')
-        
-        articles = soup.find_all('tr', class_='_tr')[:5]
-        
+        stocks = ['삼성전자', 'SK하이닉스', '현대자동차', 'LG전자', 'NAVER']
         news_list = []
-        for article in articles:
+
+        for stock in stocks:
             try:
-                title_elem = article.find('a', class_='_link_title')
-                if not title_elem:
-                    continue
-                
-                title = title_elem.get_text(strip=True)
-                link = title_elem.get('href', '')
-                
-                if title and link:
-                    if link.startswith('/'):
-                        link = 'https://finance.naver.com' + link
-                    
-                    news_list.append({
-                        'title': title,
-                        'link': link
-                    })
-            except Exception as e:
+                results = search_news(stock)
+                if results and len(results) > 0:
+                    news_list.append(results[0])
+                    if len(news_list) >= 5:
+                        break
+            except:
                 continue
 
         if news_list:
-            print(f"✅ {len(news_list)}개의 인기 뉴스를 찾았습니다!")
+            print(f"✅ {len(news_list)}개의 뉴스를 찾았습니다!")
             return news_list[:5]
         else:
             print("⚠️ 뉴스를 찾을 수 없습니다.")
