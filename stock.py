@@ -100,11 +100,11 @@ def get_stock_price(stock_name: str) -> Optional[Dict[str, any]]:
         print(f"📊 {stock_name} 주가 정보 조회 중...")
         print(f">>> [디버그] pykrx 호출 시작 (종목코드: {stock_code})")
 
-        # 오늘 날짜 기준 최근 데이터 조회
+        # 오늘 날짜 기준 최근 2일 데이터만 조회 (속도 개선)
         today = pd.Timestamp.today()
-        start_date = (today - timedelta(days=10)).strftime('%Y%m%d')
+        start_date = (today - timedelta(days=2)).strftime('%Y%m%d')
         end_date = today.strftime('%Y%m%d')
-        print(f">>> [디버그] 조회 기간: {start_date} ~ {end_date}")
+        print(f">>> [디버그] 조회 기간: {start_date} ~ {end_date} (2일만)")
 
         # pykrx에서 OHLCV 데이터 조회 (타임아웃 추가)
         df_result = [None]
