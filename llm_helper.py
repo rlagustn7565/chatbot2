@@ -2,6 +2,8 @@ import os
 from typing import Dict, List, Optional, Any
 from dotenv import load_dotenv
 from google import genai
+import threading
+import time
 
 # .env 파일 로드
 load_dotenv()
@@ -10,142 +12,104 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 
-def summarize_news(news_list: List[Dict[str, str]]) -> Optional[str]:
-    """
-    뉴스 리스트를 받아 Gemini AI로 3줄 요약 생성
-
-    Args:
-        news_list: 뉴스 딕셔너리 리스트
-        [{"title": "제목", "link": "URL", "description": "요약"},...]
-
-    Returns:
-        요약 텍스트 또는 None (오류 시)
-    """
-    if not GEMINI_API_KEY:
-        print("❌ Gemini API 키가 설정되지 않았습니다.")
-        return None
-
-    if not news_list or len(news_list) == 0:
-        print("⚠️ 뉴스가 없습니다.")
-        return None
-
-    try:
-        print("🤖 Gemini AI로 뉴스 요약 중...")
-
-        # 뉴스 텍스트 구성
-        news_text = ""
-        for i, news in enumerate(news_list, 1):
-            news_text += f"\n기사 {i}:\n"
-            news_text += f"제목: {news.get('title', '')}\n"
-            news_text += f"설명: {news.get('description', '')}\n"
-
-        prompt = f"""다음 금융 뉴스들을 읽고, 주식 초보자도 이해하기 쉽게 핵심 내용을 정확히 3줄로 요약해 줘.
-
-{news_text}
-
-요약 (정확히 3줄):"""
-
-        client = genai.Client(api_key=GEMINI_API_KEY)
-
-        interaction = client.interactions.create(
-            model="gemini-3.6-flash",
-            input=prompt
-        )
-
-        summary = interaction.output_text.strip()
-
-        print("✅ 뉴스 요약 완료!\n")
-        return summary
-
-    except Exception as e:
-        print(f"❌ 뉴스 요약 중 오류: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
-
-
 def analyze_stock(price_data: Dict[str, Any], news_list: List[Dict[str, str]]) -> Optional[str]:
     """
-    주식 가격 데이터와 뉴스 리스트를 받아 Gemini AI로 투심 분석 진행
-
-    Args:
-        price_data: 주식 데이터 딕셔너리
-        {
-            "name": "종목명",
-            "code": "종목코드",
-            "price": 현재가,
-            "change": 변화액,
-            "change_rate": 등락률,
-            ...
-        }
-        news_list: 뉴스 리스트
-
-    Returns:
-        마크다운 형식의 투심 분석 텍스트
+    주식 분석 (Gemini 또는 폴백)
     """
-    if not GEMINI_API_KEY:
-        print("❌ Gemini API 키가 설정되지 않았습니다.")
-        return None
-
     if not price_data or not news_list:
         print("⚠️ 데이터가 부족합니다.")
         return None
 
+    stock_name = price_data.get('name', 'N/A')
+    current_price = price_data.get('price', 0)
+    change_rate = price_data.get('change_rate', 0)
+
     try:
         print("🤖 Gemini AI로 투심 분석 중...")
 
-        # 가격 데이터 텍스트 구성
-        stock_name = price_data.get('name', 'N/A')
-        current_price = price_data.get('price', 0)
-        change_rate = price_data.get('change_rate', 0)
-
-        price_text = f"""
-[주식 정보]
-종목명: {stock_name}
-현재가: {current_price:,.0f}원
-등락률: {change_rate:+.2f}%
-"""
-
-        # 뉴스 텍스트 구성
+        # 뉴스 텍스트 준비
         news_text = ""
-        for i, news in enumerate(news_list, 1):
-            news_text += f"\n[기사 {i}]\n"
-            news_text += f"제목: {news.get('title', '')}\n"
-            news_text += f"내용: {news.get('description', '')}\n"
+        for i, news in enumerate(news_list[:3], 1):
+            title = news.get('title', '')[:40]
+            news_text += f"기사{i}: {title}\n"
 
-        prompt = f"""당신은 증권 전문가입니다. 다음 정보를 분석하여 간결하게 작성해 주세요.
+        prompt = f"""{stock_name} 투심 분석.
 
-{price_text}
+현재가: {current_price:,.0f}원 ({change_rate:+.2f}%)
 
+뉴스:
 {news_text}
 
-다음 4가지를 간단히 작성 (각 항목 1-2줄):
+이 형식으로만 작성:
+📈 현재가: [한 줄]
+⚖️ 투심: [긍정/부정/중립]
+🔗 관련주: [2-3개]"""
 
-1. 📈 현재가: 현재가와 등락률만 명시
-2. 📰 뉴스: 3개 기사의 핵심 1-2줄씩
-3. ⚖️ 투심: 긍정/부정/중립 중 선택 + 이유 1줄
-4. 🔗 관련주: {stock_name}과 관련된 2-3개 종목만 나열
+        result = [None]
+        error = [None]
 
-총 길이는 500자 이내로 작성해주세요."""
+        def call_gemini():
+            try:
+                if not GEMINI_API_KEY:
+                    error[0] = "API 키 없음"
+                    return
 
-        client = genai.Client(api_key=GEMINI_API_KEY)
+                client = genai.Client(api_key=GEMINI_API_KEY)
+                interaction = client.interactions.create(
+                    model="gemini-3.6-flash",
+                    input=prompt
+                )
+                result[0] = interaction.output_text.strip()[:400]
+            except Exception as e:
+                error[0] = str(e)
 
-        interaction = client.interactions.create(
-            model="gemini-3.6-flash",
-            input=prompt,
-            timeout=15
-        )
+        # 스레드에서 Gemini 호출 (타임아웃: 8초)
+        thread = threading.Thread(target=call_gemini, daemon=True)
+        thread.start()
+        thread.join(timeout=8)
 
-        analysis = interaction.output_text.strip()
+        if result[0]:
+            print("✅ 투심 분석 완료!\n")
+            return result[0]
 
-        print("✅ 투심 분석 완료!\n")
-        return analysis
+        if error[0]:
+            print(f"⚠️ Gemini 오류: {error[0]}")
+
+        # 타임아웃 또는 오류 시 폴백
+        raise Exception("Gemini 응답 없음")
 
     except Exception as e:
-        print(f"❌ 투심 분석 중 오류: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"⚠️ Gemini 분석 실패, 폴백 사용: {e}")
+
+        # 폴백: 뉴스 기반 간단한 분석
+        sentiment = "중립"
+        for news in news_list:
+            title = news.get('title', '').lower()
+            if any(word in title for word in ['상승', '호황', '증가', '상향', '강세']):
+                sentiment = "긍정"
+                break
+            elif any(word in title for word in ['하락', '부진', '감소', '하향', '약세']):
+                sentiment = "부정"
+                break
+
+        fallback = f"""📈 현재가: {stock_name} {current_price:,.0f}원 ({change_rate:+.2f}%)
+⚖️ 투심: {sentiment}적
+🔗 관련주: 미정
+
+(AI 분석 불가로 기본 정보만 제공됩니다)"""
+
+        print(f"✅ 폴백 분석 반환\n")
+        return fallback
+
+
+def summarize_news(news_list: List[Dict[str, str]]) -> Optional[str]:
+    """
+    뉴스 요약 (사용되지 않음 - analyze_stock에서 통합)
+    """
+    if not news_list:
         return None
+
+    return "뉴스 요약 기능은 analyze_stock에 통합되었습니다."
 
 
 if __name__ == "__main__":
@@ -153,7 +117,6 @@ if __name__ == "__main__":
     print("🤖 LLM Helper 테스트")
     print("=" * 60)
 
-    # 테스트 데이터: 삼성전자
     test_price_data = {
         'name': '삼성전자',
         'code': '005930',
@@ -181,17 +144,7 @@ if __name__ == "__main__":
         }
     ]
 
-    # 1. 뉴스 요약 테스트
-    print("\n[1] 뉴스 요약 테스트")
-    print("-" * 60)
-    news_summary = summarize_news(test_news_list)
-    if news_summary:
-        print("📄 요약 결과:")
-        print(news_summary)
-        print()
-
-    # 2. 투심 분석 테스트
-    print("\n[2] 투심 분석 테스트")
+    print("\n[투심 분석 테스트]")
     print("-" * 60)
     analysis = analyze_stock(test_price_data, test_news_list)
     if analysis:
