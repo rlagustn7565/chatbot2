@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from youtube import get_youtube_summary
 from stock import get_stock_price, get_stock_news, get_index_price, get_exchange_rate, get_default_indices, get_default_rates
 from llm_helper import analyze_stock
+from news import get_ranking_news, search_news
 import FinanceDataReader as fdr
 
 # .env 파일 로드
@@ -103,23 +104,32 @@ async def chat(request: KakaoRequest):
 
         # 명령어: "뉴스"
         elif "뉴스" in user_utterance:
-            print("[📰 뉴스 검색]")
-            # "삼성전자 뉴스" 형식 처리
             words = user_utterance.replace("뉴스", "").strip()
-            if words:
+
+            if not words:
+                # "뉴스"만 입력 → 인기 뉴스
+                print("[📊 인기 뉴스 조회]")
+                ranking = get_ranking_news()
+                if ranking:
+                    result_text = "📊 **현재 인기 뉴스**\n\n"
+                    for i, news in enumerate(ranking[:5], 1):
+                        result_text += f"{i}. {news['title']}\n🔗 {news['link']}\n\n"
+                else:
+                    result_text = "인기 뉴스를 조회할 수 없습니다."
+            else:
+                # "삼성전자 뉴스" 형식 → 검색
+                print("[📰 뉴스 검색]")
                 stock_name = extract_stock_name(words)
                 if stock_name:
-                    news_list = get_stock_news(stock_name)
-                    if news_list:
-                        result_text = f"📰 {stock_name} 뉴스\n\n"
-                        for i, news in enumerate(news_list[:3], 1):
-                            result_text += f"{i}. {news['title']}\n🔗 {news['link']}\n\n"
+                    news_results = search_news(stock_name)
+                    if news_results:
+                        result_text = f"📰 **{stock_name} 뉴스**\n\n"
+                        for i, news in enumerate(news_results[:3], 1):
+                            result_text += f"{i}. {news['title']}\n📝 {news['description']}\n🔗 {news['link']}\n\n"
                     else:
                         result_text = f"'{stock_name}' 관련 뉴스를 찾을 수 없습니다."
                 else:
                     result_text = "종목을 찾을 수 없습니다. '삼성전자 뉴스' 형식으로 입력해주세요."
-            else:
-                result_text = "뉴스를 조회할 종목을 지정해주세요.\n예: '삼성전자 뉴스', 'SK하이닉스 뉴스'"
 
         else:
             # 종목명 추출

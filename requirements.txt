@@ -9,3 +9,5 @@ anthropic>=0.7.0
 finance-datareader>=0.9.50
 pandas>=2.3.0
 matplotlib>=3.8.0
+newspaper3k>=0.0.10
+lxml>=4.9.0
