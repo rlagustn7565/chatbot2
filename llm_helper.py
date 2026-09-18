@@ -139,6 +139,89 @@ def analyze_stock(price_data: Dict[str, Any], news_list: List[Dict[str, str]]) -
         return fallback
 
 
+def analyze_stock_outlook(stock_name: str, price_data: Dict[str, Any], news_list: List[Dict[str, str]]) -> Optional[str]:
+    """Claude AI를 사용한 종목 전망 분석"""
+    if not price_data or not news_list:
+        print("⚠️ 분석할 데이터가 부족합니다.")
+        return None
+
+    try:
+        print("🤖 Claude AI로 종목 전망 분석 중...")
+
+        current_price = price_data.get('price', 0)
+        change_rate = price_data.get('change_rate', 0)
+        high_52w = price_data.get('high_52w', 0)
+        low_52w = price_data.get('low_52w', 0)
+
+        # 뉴스 요약
+        news_text = ""
+        for i, news in enumerate(news_list[:3], 1):
+            title = news.get('title', '')[:60]
+            news_text += f"• {title}\n"
+
+        prompt = f"""{stock_name} 종목 전망 분석 요청
+
+📊 현재 상황:
+- 현재가: {current_price:,.0f}원
+- 등락률: {change_rate:+.2f}%
+- 52주 범위: {low_52w:,.0f}원 ~ {high_52w:,.0f}원
+
+📰 최근 뉴스:
+{news_text}
+
+다음 형식으로 {stock_name}의 향후 전망을 분석해주세요:
+
+**📈 투자 전망**
+1️⃣ 강점 (주요 호재 또는 긍정 요인)
+2️⃣ 약점 (위험 요인 또는 부정 요인)
+3️⃣ 향후 전망 (3-6개월 기준)
+4️⃣ 투자 의견 (추천/보유/회피)
+
+각 항목을 2-3줄로 간결하게!"""
+
+        result = [None]
+        error = [None]
+
+        def call_claude():
+            try:
+                if not CLAUDE_API_KEY:
+                    error[0] = "API 키 없음"
+                    return
+
+                client = Anthropic(api_key=CLAUDE_API_KEY)
+
+                message = client.messages.create(
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=600,
+                    messages=[
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+
+                result[0] = message.content[0].text.strip()
+                print(f"✅ 전망 분석 완료!")
+            except Exception as e:
+                print(f"❌ Claude 오류: {e}")
+                error[0] = str(e)
+
+        # 스레드에서 Claude 호출 (20초 타임아웃)
+        thread = threading.Thread(target=call_claude, daemon=True)
+        thread.start()
+        thread.join(timeout=20)
+
+        if result[0]:
+            return result[0]
+
+        if error[0]:
+            raise Exception(f"Claude 분석 실패: {error[0]}")
+
+        raise Exception("Claude 응답 없음")
+
+    except Exception as e:
+        print(f"⚠️ 전망 분석 실패: {e}")
+        return None
+
+
 def summarize_news(news_list: List[Dict[str, str]]) -> Optional[str]:
     """뉴스 요약 (사용되지 않음 - analyze_stock에 통합)"""
     if not news_list:

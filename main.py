@@ -9,7 +9,7 @@ import asyncio
 from dotenv import load_dotenv
 from youtube import get_youtube_summary
 from stock import get_stock_price, get_stock_news, get_index_price, get_exchange_rate, get_default_indices, get_default_rates
-from llm_helper import analyze_stock, analyze_news_sentiment
+from llm_helper import analyze_stock, analyze_news_sentiment, analyze_stock_outlook
 from news import get_ranking_news, search_news
 from sector import get_sector_analysis, get_all_sectors, get_leading_sector
 import FinanceDataReader as fdr
@@ -67,6 +67,10 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
 - "삼성전자", "SK하이닉스", "LG화학" 등
   → 실시간 주가, 52주 고가/저가, 뉴스, 투자심리(긍정/부정/중립)
 
+🔮 **종목 전망 분석** (AI 활용)
+- "삼성전자 전망", "카카오 어때", "LG화학 분석해"
+  → Claude AI가 뉴스+데이터 기반 투자 전망 제시
+
 📰 종목별 뉴스 검색
 - "삼성전자 뉴스", "SK하이닉스 뉴스"
   → 해당 종목 관련 뉴스 + 감정 분석 (📈/📉/➡️)
@@ -103,6 +107,29 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
 
         # ========== 분석 시작 (동기 처리) ==========
         result_text = None
+
+        # 전망 분석 (종목 "전망", "어때", "분석" 등)
+        outlook_keywords = ["전망", "어때", "분석해", "의견", "판단"]
+        if any(keyword in user_utterance for keyword in outlook_keywords):
+            # 종목명 추출
+            stock_name = extract_stock_name(user_utterance)
+            if stock_name:
+                print(f"[🔮 {stock_name} 전망 분석]")
+                price_data = get_stock_price(stock_name)
+                news_list = get_stock_news(stock_name)
+
+                if price_data and news_list:
+                    outlook = analyze_stock_outlook(stock_name, price_data, news_list)
+                    if outlook:
+                        result_text = f"""📊 **{stock_name} 투자 전망**
+
+{outlook}"""
+                    else:
+                        result_text = f"전망 분석 중 오류가 발생했습니다. 기본 정보를 제공합니다:\n\n{analyze_stock_full(stock_name)}"
+                else:
+                    result_text = f"'{stock_name}' 데이터를 찾을 수 없습니다."
+            else:
+                result_text = "종목을 찾을 수 없습니다. '삼성전자 전망' 형식으로 입력해주세요."
 
         # 섹터 분석
         if user_utterance.lower() in ["주도섹터", "주도 섹터", "leading sector"]:
