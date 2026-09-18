@@ -11,7 +11,7 @@ from youtube import get_youtube_summary
 from stock import get_stock_price, get_stock_news, get_index_price, get_exchange_rate, get_default_indices, get_default_rates
 from llm_helper import analyze_stock, analyze_news_sentiment
 from news import get_ranking_news, search_news
-from sector import get_sector_analysis, get_all_sectors
+from sector import get_sector_analysis, get_all_sectors, get_leading_sector
 import FinanceDataReader as fdr
 
 # .env 파일 로드
@@ -75,6 +75,13 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
 - "뉴스"만 입력
   → 주요 종목 최신 뉴스 모음
 
+📊 **섹터 분석**
+- "섹터" → 사용 가능한 섹터 목록 보기
+- "주도섹터" → 현재 가장 강세인 섹터 분석
+- "반도체", "자동차", "금융", "전자", "IT", "바이오",
+  "2차전지", "AI", "건설", "조선", "화장품", "엔터"
+  → 섹터별 주도 종목 + 뉴스 + 투자심리 분석
+
 📈 시장 지수 조회
 - "지수", "KOSPI", "KOSDAQ", "나스닥", "S&P500"
   → 실시간 지수 정보
@@ -98,7 +105,10 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
         result_text = None
 
         # 섹터 분석
-        if user_utterance.lower() in ["섹터", "섹터분석", "sector"]:
+        if user_utterance.lower() in ["주도섹터", "주도 섹터", "leading sector"]:
+            print("[📊 주도 섹터]")
+            result_text = get_leading_sector()
+        elif user_utterance.lower() in ["섹터", "섹터분석", "sector"]:
             print("[📊 섹터 목록]")
             result_text = get_all_sectors()
         elif user_utterance.lower().startswith("섹터") or user_utterance.lower().startswith("sector"):
