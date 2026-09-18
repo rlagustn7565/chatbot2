@@ -37,32 +37,29 @@ def get_youtube_transcript(url: str) -> Optional[str]:
     print("📝 자막을 가져오는 중...")
 
     try:
-        # 사용 가능한 자막 언어 조회
+        # 한국어 자막 시도
         try:
-            from youtube_transcript_api._errors import TranscriptsDisabled
-            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+            transcripts = YouTubeTranscriptApi.get_transcript(video_id, languages=['ko'])
+            print("✅ 한국어 자막 찾음!")
+            return '\n'.join([t['text'] for t in transcripts])
+        except:
+            pass
 
-            # 한국어 자막 우선
-            if 'ko' in [t.language_code for t in transcript_list.manually_created_transcripts]:
-                transcripts = transcript_list.find_transcript(['ko']).fetch()
-                print("✅ 한국어 자막 찾음!")
-                return '\n'.join([t['text'] for t in transcripts])
+        # 영어 자막 시도
+        try:
+            transcripts = YouTubeTranscriptApi.get_transcript(video_id, languages=['en'])
+            print("✅ 영어 자막 찾음!")
+            return '\n'.join([t['text'] for t in transcripts])
+        except:
+            pass
 
-            # 영어 자막
-            if 'en' in [t.language_code for t in transcript_list.manually_created_transcripts]:
-                transcripts = transcript_list.find_transcript(['en']).fetch()
-                print("✅ 영어 자막 찾음!")
-                return '\n'.join([t['text'] for t in transcripts])
-
-            # 자동생성 자막
-            if transcript_list.auto_generated_transcripts:
-                transcripts = transcript_list.auto_generated_transcripts[0].fetch()
-                print("✅ 자동생성 자막 찾음!")
-                return '\n'.join([t['text'] for t in transcripts])
-
-        except Exception as e:
-            print(f"   API 호출 실패: {type(e).__name__}")
-            return None
+        # 자동생성 자막 시도
+        try:
+            transcripts = YouTubeTranscriptApi.get_transcript(video_id)
+            print("✅ 자막 찾음!")
+            return '\n'.join([t['text'] for t in transcripts])
+        except:
+            pass
 
         print("❌ 자막을 찾을 수 없습니다.")
         return None
