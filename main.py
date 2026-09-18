@@ -204,7 +204,7 @@ def analyze_stock_full(stock_name: str) -> Optional[str]:
         result = f"""📊 {stock_name}
 
 💰 {price_data['price']:,.0f}원 ({price_data['change_rate']:+.2f}%)
-📈 52주 고가: {price_data['high_52w']:,.0f}원 / 저가: {price_data['low_52w']:,.0f}원
+📈 종가기준 52주 고가: {price_data['high_52w']:,.0f}원 / 저가: {price_data['low_52w']:,.0f}원
 💡 저가 대비: {price_data['change_from_52w_low']:+.1f}%"""
 
         # 즉시 투심 분석 추가
