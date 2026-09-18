@@ -111,8 +111,12 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
         # 전망 분석 (종목 "전망", "어때", "분석" 등)
         outlook_keywords = ["전망", "어때", "분석해", "의견", "판단"]
         if any(keyword in user_utterance for keyword in outlook_keywords):
-            # 종목명 추출
-            stock_name = extract_stock_name(user_utterance)
+            # 키워드 제거 후 종목명 추출
+            clean_utterance = user_utterance
+            for keyword in outlook_keywords:
+                clean_utterance = clean_utterance.replace(keyword, "").strip()
+
+            stock_name = extract_stock_name(clean_utterance)
             if stock_name:
                 print(f"[🔮 {stock_name} 전망 분석]")
                 price_data = get_stock_price(stock_name)
