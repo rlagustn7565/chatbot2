@@ -132,7 +132,7 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
                 result_text = "종목을 찾을 수 없습니다. '삼성전자 전망' 형식으로 입력해주세요."
 
         # 섹터 분석
-        if user_utterance.lower() in ["주도섹터", "주도 섹터", "leading sector"]:
+        elif user_utterance.lower() in ["주도섹터", "주도 섹터", "leading sector"]:
             print("[📊 주도 섹터]")
             result_text = get_leading_sector()
         elif user_utterance.lower() in ["섹터", "섹터분석", "sector"]:
