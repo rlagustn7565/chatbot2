@@ -11,6 +11,7 @@ from youtube import get_youtube_summary
 from stock import get_stock_price, get_stock_news, get_index_price, get_exchange_rate, get_default_indices, get_default_rates
 from llm_helper import analyze_stock, analyze_news_sentiment
 from news import get_ranking_news, search_news
+from sector import get_sector_analysis, get_all_sectors
 import FinanceDataReader as fdr
 
 # .env 파일 로드
@@ -96,8 +97,17 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
         # ========== 분석 시작 (동기 처리) ==========
         result_text = None
 
+        # 섹터 분석
+        if user_utterance.lower() in ["섹터", "섹터분석", "sector"]:
+            print("[📊 섹터 목록]")
+            result_text = get_all_sectors()
+        elif user_utterance.lower().startswith("섹터") or user_utterance.lower().startswith("sector"):
+            print("[📊 섹터 분석]")
+            sector_name = user_utterance.replace("섹터", "").replace("sector", "").strip()
+            result_text = get_sector_analysis(sector_name)
+
         # 유튜브 링크 감지
-        if "youtube.com" in user_utterance or "youtu.be" in user_utterance:
+        elif "youtube.com" in user_utterance or "youtu.be" in user_utterance:
             print("[🎥 유튜브 분석]")
             result_text = get_youtube_summary(user_utterance)
 

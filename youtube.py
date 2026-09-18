@@ -113,20 +113,7 @@ def get_youtube_summary(url: str) -> Optional[str]:
     print("📺 유튜브 영상 요약 시작")
     print("=" * 60 + "\n")
 
-    if not TRANSCRIPT_API_AVAILABLE:
-        return "❌ YouTube 기능이 준비되지 않았습니다."
-
-    transcript = get_youtube_transcript(url)
-
-    if not transcript:
-        return "❌ 자막을 가져올 수 없습니다."
-
-    summary = summarize_transcript(transcript)
-
-    if not summary:
-        return "❌ 요약을 생성할 수 없습니다."
-
-    return summary
+    return "📺 유튜브 영상 요약은 준비중입니다."
 
 
 if __name__ == "__main__":
