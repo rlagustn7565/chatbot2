@@ -217,12 +217,62 @@ def analyze_stock_outlook(stock_name: str, price_data: Dict[str, Any], news_list
         return None
 
 
-def summarize_news(news_list: List[Dict[str, str]]) -> Optional[str]:
-    """뉴스 요약 (사용되지 않음 - analyze_stock에 통합)"""
-    if not news_list:
+def summarize_news_headlines(stock_name: str, news_list: List[Dict[str, str]]) -> Optional[str]:
+    """여러 뉴스 헤드라인을 Claude가 종합 분석"""
+    if not news_list or len(news_list) == 0:
         return None
 
-    return "뉴스 요약 기능은 analyze_stock에 통합되었습니다."
+    try:
+        print("🤖 Claude로 뉴스 종합 분석 중...")
+
+        # 헤드라인 수집
+        headlines = "\n".join([f"- {news['title']}" for news in news_list[:5]])
+
+        prompt = f"""{stock_name} 관련 뉴스 종합 분석
+
+최근 뉴스 헤드라인:
+{headlines}
+
+이 뉴스들의 핵심을 1-2줄로 요약해줘. (호재/악재 포함)"""
+
+        result = [None]
+        error = [None]
+
+        def call_claude():
+            try:
+                if not CLAUDE_API_KEY:
+                    error[0] = "API 키 없음"
+                    return
+
+                client = Anthropic(api_key=CLAUDE_API_KEY)
+
+                message = client.messages.create(
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=150,
+                    messages=[
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+
+                result[0] = message.content[0].text.strip()
+                print("✅ 종합 분석 완료!")
+            except Exception as e:
+                print(f"❌ Claude 오류: {e}")
+                error[0] = str(e)
+
+        # 스레드에서 Claude 호출 (3초 타임아웃)
+        thread = threading.Thread(target=call_claude, daemon=True)
+        thread.start()
+        thread.join(timeout=3)
+
+        if result[0]:
+            return result[0]
+
+        return None
+
+    except Exception as e:
+        print(f"❌ 뉴스 종합 분석 오류: {e}")
+        return None
 
 
 if __name__ == "__main__":

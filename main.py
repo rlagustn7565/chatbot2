@@ -9,7 +9,7 @@ import asyncio
 from dotenv import load_dotenv
 from youtube import get_youtube_summary
 from stock import get_stock_price, get_stock_news, get_index_price, get_exchange_rate, get_default_indices, get_default_rates
-from llm_helper import analyze_stock, analyze_news_sentiment, analyze_stock_outlook
+from llm_helper import analyze_stock, analyze_news_sentiment, analyze_stock_outlook, summarize_news_headlines
 from news import get_ranking_news, search_news
 from sector import get_sector_analysis, get_all_sectors, get_leading_sector
 import FinanceDataReader as fdr
@@ -239,13 +239,13 @@ async def health_check():
 # ============================================================
 
 def analyze_stock_full(stock_name: str) -> Optional[str]:
-    """주식 종목 분석 (가격 + 뉴스 + 투심)"""
+    """주식 종목 분석 (가격 + 뉴스 + 종합분석)"""
     try:
         price_data = get_stock_price(stock_name)
         if not price_data:
             return f"'{stock_name}' 종목을 찾을 수 없습니다."
 
-        # 뉴스도 빠르게 조회
+        # 뉴스 조회
         news_list = get_stock_news(stock_name)
 
         # 기본 정보
@@ -254,24 +254,22 @@ def analyze_stock_full(stock_name: str) -> Optional[str]:
 📈 52주: {price_data['low_52w']:,.0f} ~ {price_data['high_52w']:,.0f}원
 💡 저가대비: {price_data['change_from_52w_low']:+.1f}%"""
 
-        # 즉시 투심 분석 추가
+        # Claude 종합 뉴스 분석 추가
         if news_list and len(news_list) > 0:
-            sentiment = analyze_news_sentiment(stock_name, news_list[0]['title'])
-            result += f"\n\n{sentiment} 투자심리: "
-
-            if sentiment == "📈":
-                result += "긍정적"
-            elif sentiment == "📉":
-                result += "부정적"
+            summary = summarize_news_headlines(stock_name, news_list)
+            if summary:
+                result += f"\n\n📰 최근 뉴스 분석:\n{summary}"
             else:
-                result += "중립"
-
-            result += f"\n📰 {news_list[0]['title']}"
+                # 폴백: 첫 뉴스만 표시
+                sentiment = analyze_news_sentiment(stock_name, news_list[0]['title'])
+                result += f"\n\n📰 {sentiment} {news_list[0]['title']}"
 
         return result
 
     except Exception as e:
         print(f"❌ 주식 조회 오류: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 
