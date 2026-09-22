@@ -12,7 +12,6 @@ from stock import get_stock_price, get_stock_news, get_index_price, get_exchange
 from llm_helper import analyze_stock, analyze_news_sentiment, analyze_stock_outlook
 from news import get_ranking_news, search_news
 from sector import get_sector_analysis, get_all_sectors, get_leading_sector
-from trending import get_trending_stocks, get_trending_sectors
 import FinanceDataReader as fdr
 
 # .env 파일 로드
@@ -80,11 +79,6 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
 - "뉴스"만 입력
   → 주요 종목 최신 뉴스 모음
 
-🔥 **특징주/특징섹터** (NEW!)
-- "특징주" → 급등/급락 종목 (거래량 기반)
-- "특징섹터" → 상승/하락 섹터 분석
-  → KRX 전체 종목 대상 실시간 분석
-
 📊 **섹터 분석**
 - "섹터" → 사용 가능한 섹터 목록 보기
 - "주도섹터" → 현재 가장 강세인 섹터 분석
@@ -114,16 +108,9 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
         # ========== 분석 시작 (동기 처리) ==========
         result_text = None
 
-        # 특징주/특징섹터 분석
-        if user_utterance.lower() in ["특징주", "trending stocks"]:
-            print("[📈 특징주 분석]")
-            result_text = get_trending_stocks()
-        elif user_utterance.lower() in ["특징섹터", "trending sectors"]:
-            print("[📊 특징섹터 분석]")
-            result_text = get_trending_sectors()
-
         # 전망 분석 (종목 "전망", "어때", "분석" 등)
-        elif any(keyword in user_utterance for keyword in ["전망", "어때", "분석해", "의견", "판단"]):
+        outlook_keywords = ["전망", "어때", "분석해", "의견", "판단"]
+        if any(keyword in user_utterance for keyword in outlook_keywords):
             # 키워드 제거 후 종목명 추출
             clean_utterance = user_utterance
             for keyword in outlook_keywords:
