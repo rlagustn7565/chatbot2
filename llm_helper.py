@@ -260,10 +260,10 @@ def summarize_news_headlines(stock_name: str, news_list: List[Dict[str, str]]) -
                 print(f"❌ Claude 오류: {e}")
                 error[0] = str(e)
 
-        # 스레드에서 Claude 호출 (3초 타임아웃)
+        # 스레드에서 Claude 호출 (4초 타임아웃 - Kakao 5초 제한 안전)
         thread = threading.Thread(target=call_claude, daemon=True)
         thread.start()
-        thread.join(timeout=3)
+        thread.join(timeout=4)
 
         if result[0]:
             return result[0]
