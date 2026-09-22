@@ -219,6 +219,8 @@ def analyze_stock_outlook(stock_name: str, price_data: Dict[str, Any], news_list
 
     except Exception as e:
         print(f"⚠️ 전망 분석 실패: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 
