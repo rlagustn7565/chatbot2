@@ -101,10 +101,10 @@ def analyze_stock(price_data: Dict[str, Any], news_list: List[Dict[str, str]]) -
                 traceback.print_exc()
                 error[0] = str(e)
 
-        # 스레드에서 Claude 호출 (20초 타임아웃)
+        # 스레드에서 Claude 호출 (4초 타임아웃 - Kakao 5초 제한 고려)
         thread = threading.Thread(target=call_claude, daemon=True)
         thread.start()
-        thread.join(timeout=20)
+        thread.join(timeout=4)
 
         if result[0]:
             print("✅ 투심 분석 완료!\n")
@@ -159,25 +159,18 @@ def analyze_stock_outlook(stock_name: str, price_data: Dict[str, Any], news_list
             title = news.get('title', '')[:60]
             news_text += f"• {title}\n"
 
-        prompt = f"""{stock_name} 종목 전망 분석 요청
+        prompt = f"""{stock_name} 투자 전망 (간단 분석)
 
-📊 현재 상황:
-- 현재가: {current_price:,.0f}원
-- 등락률: {change_rate:+.2f}%
-- 52주 범위: {low_52w:,.0f}원 ~ {high_52w:,.0f}원
+현재: {current_price:,.0f}원 ({change_rate:+.2f}%) | 52주: {low_52w:,.0f}~{high_52w:,.0f}원
 
-📰 최근 뉴스:
+뉴스:
 {news_text}
 
-다음 형식으로 {stock_name}의 향후 전망을 분석해주세요:
-
-**📈 투자 전망**
-1️⃣ 강점 (주요 호재 또는 긍정 요인)
-2️⃣ 약점 (위험 요인 또는 부정 요인)
-3️⃣ 향후 전망 (3-6개월 기준)
-4️⃣ 투자 의견 (추천/보유/회피)
-
-각 항목을 2-3줄로 간결하게!"""
+다음 4가지만 1줄씩:
+1️⃣ 강점
+2️⃣ 약점
+3️⃣ 향후 전망 (3-6개월)
+4️⃣ 투자 의견"""
 
         result = [None]
         error = [None]
@@ -192,7 +185,7 @@ def analyze_stock_outlook(stock_name: str, price_data: Dict[str, Any], news_list
 
                 message = client.messages.create(
                     model="claude-haiku-4-5-20251001",
-                    max_tokens=600,
+                    max_tokens=250,
                     messages=[
                         {"role": "user", "content": prompt}
                     ]
@@ -204,10 +197,10 @@ def analyze_stock_outlook(stock_name: str, price_data: Dict[str, Any], news_list
                 print(f"❌ Claude 오류: {e}")
                 error[0] = str(e)
 
-        # 스레드에서 Claude 호출 (20초 타임아웃)
+        # 스레드에서 Claude 호출 (4초 타임아웃 - Kakao 5초 제한 고려)
         thread = threading.Thread(target=call_claude, daemon=True)
         thread.start()
-        thread.join(timeout=20)
+        thread.join(timeout=4)
 
         if result[0]:
             return result[0]
