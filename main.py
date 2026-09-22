@@ -256,14 +256,19 @@ def analyze_stock_full(stock_name: str) -> Optional[str]:
 
         # Claude 종합 뉴스 분석 추가
         if news_list and len(news_list) > 0:
+            print(f">>> [디버그] Claude 종합 분석 전")
             summary = summarize_news_headlines(stock_name, news_list)
+            print(f">>> [디버그] Claude 종합 분석 후: {summary is not None}")
             if summary:
                 result += f"\n\n📰 최근 뉴스 분석:\n{summary}"
+                print(f">>> [디버그] 분석 결과 추가됨")
             else:
                 # 폴백: 첫 뉴스만 표시
+                print(f">>> [디버그] 폴백 사용")
                 sentiment = analyze_news_sentiment(stock_name, news_list[0]['title'])
                 result += f"\n\n📰 {sentiment} {news_list[0]['title']}"
 
+        print(f">>> [디버그] 최종 응답 반환 (길이: {len(result)}자)")
         return result
 
     except Exception as e:
