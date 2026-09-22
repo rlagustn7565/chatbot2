@@ -288,14 +288,23 @@ def get_exchange_rate(currency_pair: str) -> Optional[Dict[str, any]]:
         # FinanceDataReader로 환율 조회 (동적 날짜)
         today = pd.Timestamp.today()
         start_date = today - timedelta(days=30)  # 최근 30일
+        print(f">>> [디버그] 조회 기간: {start_date.date()} ~ {today.date()}")
+
         df = fdr.DataReader(currency_pair, start=start_date)
+        print(f">>> [디버그] 데이터 조회 완료, 행 수: {len(df)}")
+        print(f">>> [디버그] 컬럼: {df.columns.tolist()}")
+        print(f">>> [디버그] 데이터 헤드:\n{df.head()}")
+        print(f">>> [디버그] 데이터 테일:\n{df.tail()}")
 
         if df.empty:
             print(f"❌ 환율 데이터를 찾을 수 없습니다.")
             return None
 
         latest = df.iloc[-1]
+        print(f">>> [디버그] 최신 행: {latest.to_dict()}")
+
         current_rate = float(latest['Close'])
+        print(f">>> [디버그] 현재 환율: {current_rate}")
 
         # 변화량 계산 (데이터 부족 시 0으로 설정)
         change = 0.0
@@ -304,17 +313,29 @@ def get_exchange_rate(currency_pair: str) -> Optional[Dict[str, any]]:
         if len(df) > 1:
             try:
                 prev = df.iloc[-2]
+                print(f">>> [디버그] 이전 행: {prev.to_dict()}")
+
                 prev_rate = float(prev['Close'])
+                print(f">>> [디버그] 이전 환율: {prev_rate}")
+
                 diff = current_rate - prev_rate
                 rate = (diff / prev_rate) * 100 if prev_rate != 0 else 0
+
+                print(f">>> [디버그] 차이(diff): {diff}, 변화율(rate): {rate}")
 
                 # nan 값 체크 및 정리
                 if not pd.isna(diff) and not pd.isna(rate):
                     change = float(diff)
                     change_rate = float(rate)
-            except:
+                    print(f">>> [디버그] 최종 변화: {change}, 변화율: {change_rate}")
+                else:
+                    print(f">>> [디버그] nan 값 감지, 변화율 0으로 설정")
+            except Exception as e:
+                print(f">>> [디버그] 변화율 계산 오류: {e}")
                 change = 0.0
                 change_rate = 0.0
+        else:
+            print(f">>> [디버그] 데이터 부족 (행 수: {len(df)}), 변화율 0으로 설정")
 
         result = {
             'pair': currency_pair,
@@ -333,6 +354,8 @@ def get_exchange_rate(currency_pair: str) -> Optional[Dict[str, any]]:
 
     except Exception as e:
         print(f"❌ 환율 조회 중 오류: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 
