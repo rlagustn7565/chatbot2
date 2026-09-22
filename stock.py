@@ -312,26 +312,39 @@ def get_exchange_rate(currency_pair: str) -> Optional[Dict[str, any]]:
 
         if len(df) > 1:
             try:
-                prev = df.iloc[-2]
-                print(f">>> [디버그] 이전 행: {prev.to_dict()}")
+                # NaN을 건너뛰고 가장 최근의 유효한 Close 값 찾기
+                prev_rate = None
+                for i in range(len(df) - 2, -1, -1):
+                    potential_rate = df.iloc[i]['Close']
+                    if not pd.isna(potential_rate):
+                        prev_rate = float(potential_rate)
+                        prev_index = i
+                        print(f">>> [디버그] 유효한 이전 환율 찾음 (인덱스 -{len(df)-i}): {prev_rate}")
+                        break
 
-                prev_rate = float(prev['Close'])
-                print(f">>> [디버그] 이전 환율: {prev_rate}")
-
-                diff = current_rate - prev_rate
-                rate = (diff / prev_rate) * 100 if prev_rate != 0 else 0
-
-                print(f">>> [디버그] 차이(diff): {diff}, 변화율(rate): {rate}")
-
-                # nan 값 체크 및 정리
-                if not pd.isna(diff) and not pd.isna(rate):
-                    change = float(diff)
-                    change_rate = float(rate)
-                    print(f">>> [디버그] 최종 변화: {change}, 변화율: {change_rate}")
+                if prev_rate is None:
+                    print(f">>> [디버그] 유효한 이전 데이터 없음")
+                    change = 0.0
+                    change_rate = 0.0
                 else:
-                    print(f">>> [디버그] nan 값 감지, 변화율 0으로 설정")
+                    diff = current_rate - prev_rate
+                    rate = (diff / prev_rate) * 100 if prev_rate != 0 else 0
+
+                    print(f">>> [디버그] 차이(diff): {diff}, 변화율(rate): {rate}")
+
+                    # nan 값 체크 및 정리
+                    if not pd.isna(diff) and not pd.isna(rate):
+                        change = float(diff)
+                        change_rate = float(rate)
+                        print(f">>> [디버그] 최종 변화: {change}, 변화율: {change_rate}")
+                    else:
+                        print(f">>> [디버그] 계산 결과 nan 감지, 변화율 0으로 설정")
+                        change = 0.0
+                        change_rate = 0.0
             except Exception as e:
                 print(f">>> [디버그] 변화율 계산 오류: {e}")
+                import traceback
+                traceback.print_exc()
                 change = 0.0
                 change_rate = 0.0
         else:
