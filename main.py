@@ -9,7 +9,7 @@ import asyncio
 from dotenv import load_dotenv
 from youtube import get_youtube_summary
 from stock import get_stock_price, get_stock_news, get_index_price, get_exchange_rate, get_default_indices, get_default_rates
-from llm_helper import analyze_stock, analyze_news_sentiment, analyze_stock_outlook, summarize_news_headlines
+from llm_helper import analyze_stock, analyze_news_sentiment, analyze_stock_outlook
 from news import get_ranking_news, search_news
 from sector import get_sector_analysis, get_all_sectors, get_leading_sector
 import FinanceDataReader as fdr
@@ -254,21 +254,22 @@ def analyze_stock_full(stock_name: str) -> Optional[str]:
 📈 52주: {price_data['low_52w']:,.0f} ~ {price_data['high_52w']:,.0f}원
 💡 저가대비: {price_data['change_from_52w_low']:+.1f}%"""
 
-        # Claude 종합 뉴스 분석 추가
+        # 가장 긍정적인 뉴스 선택
         if news_list and len(news_list) > 0:
-            print(f">>> [디버그] Claude 종합 분석 전")
-            summary = summarize_news_headlines(stock_name, news_list)
-            print(f">>> [디버그] Claude 종합 분석 후: {summary is not None}")
-            if summary:
-                result += f"\n\n📰 최근 뉴스 분석:\n{summary}"
-                print(f">>> [디버그] 분석 결과 추가됨")
-            else:
-                # 폴백: 첫 뉴스만 표시
-                print(f">>> [디버그] 폴백 사용")
-                sentiment = analyze_news_sentiment(stock_name, news_list[0]['title'])
-                result += f"\n\n📰 {sentiment} {news_list[0]['title']}"
+            # 각 뉴스의 감정 점수 계산
+            scored_news = []
+            for news in news_list:
+                sentiment = analyze_news_sentiment(stock_name, news['title'])
+                # 긍정(2) > 중립(1) > 부정(0)
+                score = 2 if sentiment == "📈" else (1 if sentiment == "➡️" else 0)
+                scored_news.append((score, sentiment, news))
 
-        print(f">>> [디버그] 최종 응답 반환 (길이: {len(result)}자)")
+            # 가장 긍정적인 뉴스만 선택
+            best_news = max(scored_news, key=lambda x: x[0])
+            sentiment, news = best_news[1], best_news[2]
+
+            result += f"\n\n📰 {sentiment} {news['title']}\n   {news['description'][:120]}"
+
         return result
 
     except Exception as e:
