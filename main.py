@@ -65,24 +65,24 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
 
 📈 주식 종목 분석
 - "삼성전자", "SK하이닉스", "LG화학" 등
-  → 실시간 주가, 52주 고가/저가, 뉴스, 투자심리(긍정/부정/중립)
+  → 실시간 주가, 52주 고가/저가, 뉴스, 투자심리
 
-🔮 **종목 전망 분석** (AI 활용)
+🔮 종목 전망 분석 (AI 활용)
 - "삼성전자 전망", "카카오 어때", "LG화학 분석해"
   → Claude AI가 뉴스+데이터 기반 투자 전망 제시
 
 📰 종목별 뉴스 검색
 - "삼성전자 뉴스", "SK하이닉스 뉴스"
-  → 해당 종목 관련 뉴스 + 감정 분석 (📈/📉/➡️)
+  → 해당 종목 관련 뉴스 + 감정 분석
 
 📊 뉴스 조회
 - "뉴스"만 입력
   → 주요 종목 최신 뉴스 모음
 
-📊 **섹터 분석**
+📊 섹터 분석
 - "섹터" → 사용 가능한 섹터 목록 보기
 - "주도섹터" → 현재 가장 강세인 섹터 분석
-- "반도체", "자동차", "금융", "전자", "IT", "바이오",
+- "반도체", "자동차", "금융", "전자", "IT", "바이오"
   "2차전지", "AI", "건설", "조선", "화장품", "엔터"
   → 섹터별 주도 종목 + 뉴스 + 투자심리 분석
 
@@ -125,7 +125,7 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
                 if price_data and news_list:
                     outlook = analyze_stock_outlook(stock_name, price_data, news_list)
                     if outlook:
-                        result_text = f"""📊 **{stock_name} 투자 전망**
+                        result_text = f"""📊 {stock_name} 투자 전망
 
 {outlook}"""
                     else:
@@ -171,11 +171,10 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
                 print("[📊 인기 뉴스 조회]")
                 ranking = get_ranking_news()
                 if ranking:
-                    result_text = "📊 **현재 인기 뉴스**\n\n"
+                    result_text = "📊 현재 인기 뉴스\n\n"
                     for i, news in enumerate(ranking[:5], 1):
                         sentiment = analyze_news_sentiment("종목", news['title'])
-                        result_text += f"{i}. {sentiment} {news['title']}\n"
-                        result_text += f"   🔗 {news['link']}\n\n"
+                        result_text += f"{i}. {sentiment} {news['title']}\n   {news['link']}\n\n"
                 else:
                     result_text = "인기 뉴스를 조회할 수 없습니다."
             else:
@@ -185,12 +184,10 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
                 if stock_name:
                     news_results = search_news(stock_name)
                     if news_results:
-                        result_text = f"📰 **{stock_name} 뉴스**\n\n"
+                        result_text = f"📰 {stock_name} 뉴스\n\n"
                         for i, news in enumerate(news_results[:3], 1):
                             sentiment = analyze_news_sentiment(stock_name, news['title'])
-                            result_text += f"{i}. {sentiment} {news['title']}\n"
-                            result_text += f"   {news['description'][:100]}\n"
-                            result_text += f"   🔗 {news['link']}\n\n"
+                            result_text += f"{i}. {sentiment} {news['title']}\n   {news['description'][:80]}\n\n"
                     else:
                         result_text = f"'{stock_name}' 관련 뉴스를 찾을 수 없습니다."
                 else:
@@ -253,10 +250,9 @@ def analyze_stock_full(stock_name: str) -> Optional[str]:
 
         # 기본 정보
         result = f"""📊 {stock_name}
-
 💰 {price_data['price']:,.0f}원 ({price_data['change_rate']:+.2f}%)
-📈 종가기준 52주 고가: {price_data['high_52w']:,.0f}원 / 저가: {price_data['low_52w']:,.0f}원
-💡 저가 대비: {price_data['change_from_52w_low']:+.1f}%"""
+📈 52주: {price_data['low_52w']:,.0f} ~ {price_data['high_52w']:,.0f}원
+💡 저가대비: {price_data['change_from_52w_low']:+.1f}%"""
 
         # 즉시 투심 분석 추가
         if news_list and len(news_list) > 0:

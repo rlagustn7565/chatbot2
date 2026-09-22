@@ -86,9 +86,9 @@ def get_sector_analysis(sector_name: str) -> Optional[str]:
 
         print(f"📊 {sector['name']} 섹터 분석 중...")
 
-        result = f"""📈 **{sector['name']} 섹터 분석**
+        result = f"""📈 {sector['name']} 섹터 분석
 
-🏢 **주도 종목:**"""
+🏢 주도 종목:"""
 
         if sector['stocks']:
             for stock in sector['stocks']:
@@ -97,7 +97,7 @@ def get_sector_analysis(sector_name: str) -> Optional[str]:
             result += "\n• 암호화폐 시장 전반"
 
         # 섹터 뉴스 조회
-        result += f"\n\n📰 **최신 뉴스:**\n"
+        result += f"\n\n📰 최신 뉴스:\n"
 
         news_found = False
         for keyword in sector['keywords']:
@@ -122,7 +122,7 @@ def get_sector_analysis(sector_name: str) -> Optional[str]:
 
 def get_all_sectors() -> str:
     """모든 섹터 목록"""
-    result = "📊 **사용 가능한 섹터:**\n\n"
+    result = "📊 사용 가능한 섹터:\n\n"
     for key in SECTORS.keys():
         result += f"• {key}\n"
     return result
@@ -162,12 +162,12 @@ def get_leading_sector() -> Optional[str]:
         # 점수 높은 순서로 정렬
         sorted_sectors = sorted(sector_scores.items(), key=lambda x: x[1]['score'], reverse=True)
 
-        result = """📈 **현재 주도 섹터**
+        result = """📈 현재 주도 섹터
 
 🏆 강세 섹터:"""
 
         for i, (sector_name, data) in enumerate(sorted_sectors[:3], 1):
-            result += f"\n{i}. **{sector_name}** ({data['positive']}/{data['total']} 긍정뉴스)"
+            result += f"\n{i}. {sector_name} ({data['positive']}/{data['total']} 긍정뉴스)"
 
         if len(sorted_sectors) > 3:
             result += "\n\n📊 기타 섹터:"

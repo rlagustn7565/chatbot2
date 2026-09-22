@@ -159,18 +159,18 @@ def analyze_stock_outlook(stock_name: str, price_data: Dict[str, Any], news_list
             title = news.get('title', '')[:60]
             news_text += f"• {title}\n"
 
-        prompt = f"""{stock_name} 투자 전망 (간단 분석)
+        prompt = f"""{stock_name} 투자 전망 분석
 
 현재: {current_price:,.0f}원 ({change_rate:+.2f}%) | 52주: {low_52w:,.0f}~{high_52w:,.0f}원
 
 뉴스:
 {news_text}
 
-다음 4가지만 1줄씩:
-1️⃣ 강점
-2️⃣ 약점
-3️⃣ 향후 전망 (3-6개월)
-4️⃣ 투자 의견"""
+다음 4가지만 1-2줄씩:
+1. 강점
+2. 약점
+3. 향후 전망 (3-6개월)
+4. 투자 의견"""
 
         result = [None]
         error = [None]
