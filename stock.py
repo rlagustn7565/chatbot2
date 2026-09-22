@@ -167,7 +167,7 @@ def get_default_indices() -> str:
 
 def get_default_rates() -> str:
     """기본 환율 조회"""
-    result_text = "💱 **환율 정보**\n\n"
+    result_text = "💱 환율 정보\n\n"
 
     for pair in ['USD/KRW', 'EUR/USD', 'JPY/KRW']:
         try:
@@ -285,8 +285,10 @@ def get_exchange_rate(currency_pair: str) -> Optional[Dict[str, any]]:
     try:
         print(f"💱 {currency_pair} 환율 조회 중...")
 
-        # FinanceDataReader로 환율 조회
-        df = fdr.DataReader(currency_pair, '2026-09-01')
+        # FinanceDataReader로 환율 조회 (동적 날짜)
+        today = pd.Timestamp.today()
+        start_date = today - timedelta(days=30)  # 최근 30일
+        df = fdr.DataReader(currency_pair, start=start_date)
 
         if df.empty:
             print(f"❌ 환율 데이터를 찾을 수 없습니다.")
