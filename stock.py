@@ -233,8 +233,16 @@ def get_index_price(index_name: str) -> Optional[Dict[str, any]]:
             print(f"❌ 지수 데이터를 찾을 수 없습니다.")
             return None
 
+        print(f">>> [디버그] 지수 {index_name} 데이터 행 수: {len(df)}")
+        print(f">>> [디버그] 데이터 범위: {df.index[0].date()} ~ {df.index[-1].date()}")
+        print(f">>> [디버그] 최신 5개 행:\n{df.tail()}")
+
         latest = df.iloc[-1]
+        print(f">>> [디버그] 최신 행 (전체): {latest.to_dict()}")
+        print(f">>> [디버그] 최신 행 날짜: {df.index[-1].date()}")
+
         current_price = float(latest['Close'])
+        print(f">>> [디버그] 현재 지수값: {current_price}")
 
         if pd.isna(current_price):
             print(f"❌ 유효한 지수 데이터가 없습니다.")
