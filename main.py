@@ -143,11 +143,11 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
             sector_name = user_utterance.replace("섹터", "").replace("sector", "").strip()
             result_text = get_sector_analysis(sector_name)
 
-        # 관련기업 분석
+        # 관련기업 분석 (최신 뉴스 기반, 특정 기업 지정 없음)
         elif user_utterance.lower() in ["관련기업", "관련 기업", "related companies"]:
             print("[🏢 관련기업 분석]")
-            from news import get_ranking_news
-            news_list = get_ranking_news()
+            from news import get_trending_news
+            news_list = get_trending_news()
             result_text = get_related_companies(news_list)
 
         # 유튜브 링크 감지

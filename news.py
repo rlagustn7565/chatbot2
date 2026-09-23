@@ -105,6 +105,37 @@ def search_news(keyword: str) -> Optional[List[Dict[str, str]]]:
         return None
 
 
+def get_trending_news() -> Optional[List[Dict[str, str]]]:
+    """최신 트렌드 뉴스 수집 (기업 지정 없이 섹터별 수집)"""
+    try:
+        print("📊 최신 트렌드 뉴스 조회 중...")
+
+        # 섹터별 키워드 (기업이 아닌 산업/섹터)
+        keywords = ['반도체', 'AI', '자동차', '금융', '시장', '투자']
+        news_list = []
+
+        for keyword in keywords:
+            try:
+                results = search_news(keyword)
+                if results:
+                    news_list.extend(results)
+                    if len(news_list) >= 10:
+                        break
+            except:
+                continue
+
+        if news_list:
+            print(f"✅ {len(news_list)}개의 최신 뉴스를 찾았습니다!")
+            return news_list[:10]
+        else:
+            print("⚠️ 뉴스를 찾을 수 없습니다.")
+            return None
+
+    except Exception as e:
+        print(f"❌ 트렌드 뉴스 조회 오류: {e}")
+        return None
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("📰 뉴스 API 테스트")
