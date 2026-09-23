@@ -494,23 +494,29 @@ def get_related_companies() -> Optional[str]:
         # 기업별 뉴스 분류
         company_sentiment = {}
 
+        # 주요 기업 리스트
+        major_companies = [
+            '삼성전자', 'SK하이닉스', '현대자동차', 'LG전자', 'NAVER',
+            'LG화학', '카카오', '신한은행', 'KB금융', '삼성물산',
+            '셀트리온', '에이모레퍼시픽', '현대중공업', '기아',
+            'LG에너지솔루션', 'SK이노베이션', '삼성SDI', '롯데건설'
+        ]
+
         for news in ranking:
             title = news.get('title', '')
 
-            # 기업명 추출 (제목의 처음 부분, 쉼표나 콤마 전까지)
+            # 기업명 추출: 제목에서 주요 기업명 찾기
             company_name = None
-            for char in [',', '/', '의', '가']:
-                if char in title:
-                    potential_company = title.split(char)[0].strip()
-                    if len(potential_company) > 1 and len(potential_company) < 20:
-                        company_name = potential_company
-                        break
+            for company in major_companies:
+                if company in title:
+                    company_name = company
+                    break
 
             if not company_name:
-                # 제목에서 괄호 제거하고 앞부분 추출
-                company_name = title.split('(')[0].strip()
-                if len(company_name) > 20:
-                    continue
+                print(f">>> [디버그] 기업명 없음: {title[:50]}")
+                continue
+
+            print(f">>> [디버그] 추출된 기업: {company_name}")
 
             # 감정 분석
             sentiment = analyze_news_sentiment(company_name, title)
@@ -554,21 +560,21 @@ def get_related_companies() -> Optional[str]:
             positive_companies.sort(key=lambda x: x[1], reverse=True)
             result += "📈 호재 기업\n"
             for company, count, total in positive_companies[:5]:
-                result += f"• {company} ({count}/{total} 호재)\n"
+                result += f"• {company} (호재 뉴스 {count}개)\n"
 
         # 악재 기업
         if negative_companies:
             negative_companies.sort(key=lambda x: x[1], reverse=True)
             result += "\n📉 악재 기업\n"
             for company, count, total in negative_companies[:5]:
-                result += f"• {company} ({count}/{total} 악재)\n"
+                result += f"• {company} (악재 뉴스 {count}개)\n"
 
         # 중립 기업
         if neutral_companies:
             neutral_companies.sort(key=lambda x: x[1], reverse=True)
             result += "\n➡️ 중립 기업\n"
             for company, count, total in neutral_companies[:3]:
-                result += f"• {company} ({count}/{total} 중립)\n"
+                result += f"• {company} (중립 뉴스 {count}개)\n"
 
         if not (positive_companies or negative_companies or neutral_companies):
             return "분석 가능한 기업이 없습니다."
