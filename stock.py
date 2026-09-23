@@ -513,10 +513,7 @@ def get_related_companies() -> Optional[str]:
                     break
 
             if not company_name:
-                print(f">>> [디버그] 기업명 없음: {title[:50]}")
                 continue
-
-            print(f">>> [디버그] 추출된 기업: {company_name}")
 
             # 감정 분석
             sentiment = analyze_news_sentiment(company_name, title)

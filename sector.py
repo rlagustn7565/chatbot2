@@ -129,15 +129,23 @@ def get_all_sectors() -> str:
 
 
 def get_leading_sector() -> Optional[str]:
-    """현재 주도섹터 분석 - 긍정 뉴스가 많은 섹터"""
+    """현재 주도섹터 분석 - 긍정 뉴스가 많은 섹터 (성능 최적화)"""
     try:
         print("📊 주도 섹터 분석 중...")
         sector_scores = {}
 
-        for sector_name, sector in SECTORS.items():
+        # 주요 섹터만 분석 (성능 최적화: 5초 제한)
+        main_sectors = ['반도체', '자동차', '금융', '전자', 'IT', 'AI', '바이오', '2차전지']
+
+        for sector_name in main_sectors:
+            if sector_name not in SECTORS:
+                continue
+
+            sector = SECTORS[sector_name]
             positive_count = 0
             news_count = 0
 
+            # 첫 번째 키워드만 검색 (빠른 응답)
             for keyword in sector['keywords']:
                 news_list = search_news(keyword)
                 if news_list:
