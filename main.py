@@ -8,7 +8,7 @@ import asyncio
 # 모듈 임포트
 from dotenv import load_dotenv
 from youtube import get_youtube_summary
-from stock import get_stock_price, get_stock_news, get_index_price, get_exchange_rate, get_default_indices, get_default_rates
+from stock import get_stock_price, get_stock_news, get_index_price, get_exchange_rate, get_default_indices, get_default_rates, get_related_companies
 from llm_helper import analyze_stock, analyze_news_sentiment, analyze_stock_outlook
 from news import get_ranking_news, search_news
 from sector import get_sector_analysis, get_all_sectors, get_leading_sector
@@ -75,9 +75,9 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
 - "삼성전자 뉴스", "SK하이닉스 뉴스"
   → 해당 종목 관련 뉴스 + 감정 분석
 
-📊 뉴스 조회
-- "뉴스"만 입력
-  → 주요 종목 최신 뉴스 모음
+📊 뉴스 기반 기업 분석
+- "뉴스" → 주요 뉴스 모음
+- "관련기업" → 최신 뉴스 기반 호재/악재 기업 리스트
 
 📊 섹터 분석
 - "섹터" → 사용 가능한 섹터 목록 보기
@@ -88,15 +88,11 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
 
 📈 시장 지수 조회
 - "지수", "KOSPI", "KOSDAQ", "나스닥", "S&P500"
-  → 실시간 지수 정보
+  → 지수 정보
 
 💱 환율 조회
 - "환율", "USD/KRW", "원달러", "EUR/USD"
-  → 실시간 환율 정보
-
-📺 유튜브 영상 요약
-- 유튜브 링크 입력
-  → 자막 추출 → AI 요약"""
+  → 환율 정보 및 변화율"""
 
             return SkillPayload(
                 version="2.0",
@@ -146,6 +142,11 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
             print("[📊 섹터 분석]")
             sector_name = user_utterance.replace("섹터", "").replace("sector", "").strip()
             result_text = get_sector_analysis(sector_name)
+
+        # 관련기업 분석
+        elif user_utterance.lower() in ["관련기업", "관련 기업", "related companies"]:
+            print("[🏢 관련기업 분석]")
+            result_text = get_related_companies()
 
         # 유튜브 링크 감지
         elif "youtube.com" in user_utterance or "youtu.be" in user_utterance:

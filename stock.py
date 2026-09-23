@@ -478,6 +478,110 @@ def get_mock_news(stock_name: str) -> List[Dict[str, str]]:
     ]
 
 
+def get_related_companies() -> Optional[str]:
+    """최신 뉴스 기반 관련기업 분류 (호재/악재)"""
+    try:
+        from llm_helper import analyze_news_sentiment
+        from news import get_ranking_news
+
+        print("🏢 관련기업 분석 중...")
+
+        # 주요 뉴스 조회
+        ranking = get_ranking_news()
+        if not ranking:
+            return "관련 뉴스를 찾을 수 없습니다."
+
+        # 기업별 뉴스 분류
+        company_sentiment = {}
+
+        for news in ranking:
+            title = news.get('title', '')
+
+            # 기업명 추출 (제목의 처음 부분, 쉼표나 콤마 전까지)
+            company_name = None
+            for char in [',', '/', '의', '가']:
+                if char in title:
+                    potential_company = title.split(char)[0].strip()
+                    if len(potential_company) > 1 and len(potential_company) < 20:
+                        company_name = potential_company
+                        break
+
+            if not company_name:
+                # 제목에서 괄호 제거하고 앞부분 추출
+                company_name = title.split('(')[0].strip()
+                if len(company_name) > 20:
+                    continue
+
+            # 감정 분석
+            sentiment = analyze_news_sentiment(company_name, title)
+
+            if company_name not in company_sentiment:
+                company_sentiment[company_name] = {
+                    'positive': 0,
+                    'negative': 0,
+                    'neutral': 0,
+                    'sentiment_icon': sentiment,
+                    'news_count': 0
+                }
+
+            company_sentiment[company_name]['news_count'] += 1
+
+            if sentiment == "📈":
+                company_sentiment[company_name]['positive'] += 1
+            elif sentiment == "📉":
+                company_sentiment[company_name]['negative'] += 1
+            else:
+                company_sentiment[company_name]['neutral'] += 1
+
+        # 호재/악재 분류
+        positive_companies = []
+        negative_companies = []
+        neutral_companies = []
+
+        for company, data in company_sentiment.items():
+            if data['positive'] > data['negative']:
+                positive_companies.append((company, data['positive'], data['news_count']))
+            elif data['negative'] > data['positive']:
+                negative_companies.append((company, data['negative'], data['news_count']))
+            else:
+                neutral_companies.append((company, data['neutral'], data['news_count']))
+
+        # 결과 포맷팅
+        result = "🏢 최신 뉴스 기반 관련기업 분석\n\n"
+
+        # 호재 기업
+        if positive_companies:
+            positive_companies.sort(key=lambda x: x[1], reverse=True)
+            result += "📈 호재 기업\n"
+            for company, count, total in positive_companies[:5]:
+                result += f"• {company} ({count}/{total} 호재)\n"
+
+        # 악재 기업
+        if negative_companies:
+            negative_companies.sort(key=lambda x: x[1], reverse=True)
+            result += "\n📉 악재 기업\n"
+            for company, count, total in negative_companies[:5]:
+                result += f"• {company} ({count}/{total} 악재)\n"
+
+        # 중립 기업
+        if neutral_companies:
+            neutral_companies.sort(key=lambda x: x[1], reverse=True)
+            result += "\n➡️ 중립 기업\n"
+            for company, count, total in neutral_companies[:3]:
+                result += f"• {company} ({count}/{total} 중립)\n"
+
+        if not (positive_companies or negative_companies or neutral_companies):
+            return "분석 가능한 기업이 없습니다."
+
+        return result
+
+    except Exception as e:
+        print(f"❌ 관련기업 분석 중 오류: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("📊 금융 정보 수집 기능 테스트 (pykrx + finance-datareader)")
