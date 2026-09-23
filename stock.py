@@ -478,18 +478,22 @@ def get_mock_news(stock_name: str) -> List[Dict[str, str]]:
     ]
 
 
-def get_related_companies() -> Optional[str]:
-    """최신 뉴스 기반 관련기업 분류 (호재/악재)"""
+def get_related_companies(news_list: Optional[List[Dict[str, str]]] = None) -> Optional[str]:
+    """뉴스 리스트 기반 관련기업 분류 (호재/악재) - 추가 API 호출 없음"""
     try:
         from llm_helper import analyze_news_sentiment
-        from news import get_ranking_news
 
         print("🏢 관련기업 분석 중...")
 
-        # 주요 뉴스 조회
-        ranking = get_ranking_news()
-        if not ranking:
+        # 뉴스 리스트가 없으면 직접 가져오기 (대체용)
+        if not news_list:
+            from news import get_ranking_news
+            news_list = get_ranking_news()
+
+        if not news_list:
             return "관련 뉴스를 찾을 수 없습니다."
+
+        ranking = news_list
 
         # 기업별 뉴스 분류
         company_sentiment = {}

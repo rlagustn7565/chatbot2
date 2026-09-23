@@ -146,7 +146,9 @@ async def chat(request: KakaoRequest, background_tasks: BackgroundTasks):
         # 관련기업 분석
         elif user_utterance.lower() in ["관련기업", "관련 기업", "related companies"]:
             print("[🏢 관련기업 분석]")
-            result_text = get_related_companies()
+            from news import get_ranking_news
+            news_list = get_ranking_news()
+            result_text = get_related_companies(news_list)
 
         # 유튜브 링크 감지
         elif "youtube.com" in user_utterance or "youtu.be" in user_utterance:
